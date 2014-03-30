@@ -21,6 +21,6 @@
  */
 $title = 'baserCMS DBマイグレーター';
 $description = 'baserCMS２系のバックアップデータを３系のデータに変換します';
-$author = 'ryuring';
-$url = 'http://basercms.net/';
+$author = 'baserCMS Users Community';
+$url = 'http://basercms.net';
 $adminLink = array('admin' => true, 'plugin' => 'bc_db_migrator', 'controller' => 'migrator', 'action' => 'index');
