@@ -1,4 +1,11 @@
-<p>baserCMS 2.1.0 以上のバックアップデータの basrCMS 3.0.0 への変換のみサポート</p>
+<?php if(!empty($noticeMessage[0])): ?>
+	<div class="panel-box">
+		<h2>注意事項</h2>
+		<ul>
+			<li><?php echo implode('</li><li>', $noticeMessage) ?></li>
+		</ul>
+	</div>
+<?php endif ?>
 
 <?php echo $this->BcForm->create('Migrator', array('type' => 'file')) ?>
 
