@@ -10,7 +10,7 @@ class MigratorController extends AppController {
  * @var array
  * @access public
  */
-	public $components = ['BcAuth', 'Cookie', 'BcAuthConfigure'];
+	public $components = ['BcAuth', 'Cookie', 'BcAuthConfigure', 'BcManager'];
 
 /**
  * 一時フォルダ
@@ -45,7 +45,7 @@ class MigratorController extends AppController {
 			$this->setMessage('このプラグインは、このバージョンのbaserCMSに対応していません。', true);
 		}
 	}
-
+	
 /**
  * マイグレーション画面 
  */
@@ -94,13 +94,7 @@ class MigratorController extends AppController {
 			return false;
 		}
 		
-		// スキーマ更新
-		if(!$this->{$this->migrator}->migrateSchema()) {
-			return false;
-		}
-
-		// データ更新
-		if(!$this->{$this->migrator}->migrateData()) {
+		if(!$this->{$this->migrator}->migrate()) {
 			return false;
 		}
 		

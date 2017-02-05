@@ -3,19 +3,13 @@
  * include files
  */
 App::uses('Component', 'Controller');
+App::uses('BcDbMigratorComponent', 'BcDbMigrator.Controller/Component');
 App::uses('BcDbMigratorInterface', 'Controller/Component');
 
 /**
  * BcDbMigrator4Component
  */
-class BcDbMigrator3Component extends Component implements BcDbMigratorInterface {
-
-/**
- * コントローラー
- * 
- * @var
- */
-	protected $_Controller;
+class BcDbMigrator3Component extends BcDbMigratorComponent implements BcDbMigratorInterface {
 	
 /**
  * メッセージ
@@ -24,16 +18,6 @@ class BcDbMigrator3Component extends Component implements BcDbMigratorInterface 
 	public $message = [
 		'baserCMS 2.1.0 以上のバックアップデータの basrCMS 3.0.0 への変換のみサポート',
 	];
-	
-/**
- * initialize
- * 
- * @param \Controller $controller
- */
-	public function initialize(Controller $controller) {
-		parent::initialize($controller);
-		$this->_Controller = $controller;
-	}
 	
 /**
  * メッセージを取得する
