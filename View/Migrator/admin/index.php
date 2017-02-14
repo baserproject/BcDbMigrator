@@ -1,3 +1,11 @@
+<script>
+$(function(){
+	$("#BtnUpload").click(function(){
+		$.bcUtil.showLoader();
+	});
+});
+</script>
+
 <?php if(!empty($noticeMessage[0])): ?>
 	<div class="panel-box">
 		<h2>注意事項</h2>
@@ -20,7 +28,7 @@
 </table>
 
 <div class="submit">
-	<?php echo $this->BcForm->submit('アップロード', array('div' => false, 'class' => 'button')) ?>
+	<?php echo $this->BcForm->submit('アップロード', array('div' => false, 'class' => 'button', 'id' => 'BtnUpload')) ?>
 <?php if($this->Session->read('BcDbMigrator.file')): ?>
 	　<?php echo $this->BcBaser->link('ダウンロード', array('action' => 'download'), array('class' => 'button')) ?>
 <?php endif ?>

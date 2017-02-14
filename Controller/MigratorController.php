@@ -60,6 +60,7 @@ class MigratorController extends AppController {
 				$this->redirect('index');
 			} else {
 				$this->setMessage('バックアップデータのマイグレーションが失敗しました。バックアップデータに問題があります。', true);
+				$this->redirect('index');
 			}
 		}
 		if($this->Session->read('BcDbMigrator.downloaded')) {
@@ -109,6 +110,7 @@ class MigratorController extends AppController {
  */
 	public function _unzipUploadFileToTmp($data) {
 		$Folder = new Folder();
+		$Folder->delete($this->_tmpPath);
 		$Folder->create($this->_tmpPath, 0777);
 
 		$targetPath = $this->_tmpPath . $data['Migrator']['backup']['name'];
@@ -143,6 +145,10 @@ class MigratorController extends AppController {
 		
 		// ダウンロード
 		$Simplezip->download($fileName);
+
+		$Folder = new Folder();
+		$Folder->delete($this->_tmpPath);
+		
 		$this->Session->write('BcDbMigrator.downloaded', true);
 	}
 

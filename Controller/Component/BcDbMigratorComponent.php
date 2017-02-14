@@ -46,6 +46,8 @@ class BcDbMigratorComponent extends Component {
 	public $newDbConfigKeyName = 'bcNewDbMigrator';
 	public $oldDbConfigKeyName = 'bcOldDbMigrator';
 	
+	public $coreFolder = 'core';
+	
 /**
  * startup
  * 
@@ -124,9 +126,9 @@ class BcDbMigratorComponent extends Component {
 		ClassRegistry::flush();
 		
 		// 古いバージョンのテーブル
-		$this->_createTableBySchema($this->_oldDb, $this->_Controller->_tmpPath . 'baser');
+		$this->_createTableBySchema($this->_oldDb, $this->_Controller->_tmpPath . $this->coreFolder);
 		$this->_createTableBySchema($this->_oldDb, $this->_Controller->_tmpPath . 'plugin');
-		$this->_loadCsv($this->_oldDb, $this->_Controller->_tmpPath . 'baser');
+		$this->_loadCsv($this->_oldDb, $this->_Controller->_tmpPath . $this->coreFolder);
 		$this->_loadCsv($this->_oldDb, $this->_Controller->_tmpPath . 'plugin');
 
 		clearAllCache();
@@ -147,9 +149,21 @@ class BcDbMigratorComponent extends Component {
 		if(!empty($files[1])) {
 			foreacH($files[1] as $file) {
 				if(preg_match('/\.php$/', $file)) {
+					$File = new File($file);
+					$contents = $File->read();
+					$contents = preg_replace('/class (.+?)Schema/', 'class ${1}OldSchema', $contents);
+					$File->write($contents);
+					$File->close();
+					$old = dirname($file) . DS . basename($file, '.php') . '_old.php';
+					rename($file, $old);
 					$db->createTableBySchema([
-						'path' => $file,
+						'path' => $old,
 					]);
+					rename($old, $file);
+					$contents = $File->read();
+					$contents = preg_replace('/class (.+?)OldSchema/', 'class ${1}Schema', $contents);
+					$File->write($contents);
+					$File->close();
 				}
 			}
 		}
@@ -196,9 +210,9 @@ class BcDbMigratorComponent extends Component {
  * @param string $dbConfigKeyName DB設定キー
  */
 	protected function _setDbConfigToAllModels($dbConfigKeyName) {
-		$this->_setDbConfigToModels(App::objects('Model'), $dbConfigKeyName);
+		$this->_setDbConfigToModels(null, App::objects('Model'), $dbConfigKeyName);
 		foreach($this->_defaultPlugins as $plugin) {
-			$this->_setDbConfigToModels(App::objects($plugin . '.Model', null, false), $dbConfigKeyName);
+			$this->_setDbConfigToModels($plugin, App::objects($plugin . '.Model', null, false), $dbConfigKeyName);
 		}
 	}
 
@@ -209,13 +223,16 @@ class BcDbMigratorComponent extends Component {
  * @param string $dbConfigKeyName DB設定キー 
  * @return bool
  */
-	protected function _setDbConfigToModels($models, $dbConfigKeyName) {
-		$excludes = ['AppModel', 'BcAppModel', 'BcPluginAppModel' ,'CakeSchema'];
+	protected function _setDbConfigToModels($plugin, $models, $dbConfigKeyName) {
+		$excludes = ['AppModel', 'BcAppModel', 'BcPluginAppModel' ,'CakeSchema', 'BlogAppModel', 'MailAppModel'];
 		if(!$models) {
 			return false;
 		}
 		foreach($models as $model) {
 			if(!in_array($model, $excludes)) {
+				if($plugin) {
+					$model = $plugin . '.' . $model;
+				}
 				$modelClass = ClassRegistry::init($model);
 				$this->_setDbConfigToModel($modelClass, $dbConfigKeyName);
 			}
@@ -228,7 +245,7 @@ class BcDbMigratorComponent extends Component {
  * @param Model $Model
  * @param $dbConfigKeyName
  */
-	protected function _setDbConfigToModel($Model, $dbConfigKeyName) {
+	protected function _setDbConfigToModel(Model $Model, $dbConfigKeyName) {
 		$dbConfig = ConnectionManager::$config->{$dbConfigKeyName};
 		$Model->useDbConfig = $dbConfigKeyName;
 		$Model->tablePrefix = $dbConfig['prefix'];
@@ -251,26 +268,85 @@ class BcDbMigratorComponent extends Component {
  */
 	public function readCsv($isPlugin, $table) {
 		if(!$isPlugin) {
-			$type = 'baser';
+			$type = $this->coreFolder;
 		} else {
 			$type = 'plugin';
 		}
 		return $this->_newDb->loadCsvToArray($this->_Controller->_tmpPath . $type . DS . $table . '.csv', 'SJIS');
 	}
 
-	public function dummy() {
-		
-//		// CSVを書き出す
-//		$db->writeCsv(
-//			[
-//				'path' => $this->_tmpPath . 'baser' . DS . 'contents_2.csv',
-//				'encoding' => '',
-//				'table' => 'contents',
-//				'init' => false,
-//				'plugin' => null
-//			]
-//		);
+/**
+ * スキーマファイルを削除する
+ * 
+ * @param bool $isPlugin
+ * @param string $table
+ */
+	public function deleteSchema($isPlugin, $table) {
+		if(!$isPlugin) {
+			$type = $this->coreFolder;
+		} else {
+			$type = 'plugin';
+		}
+		unlink($this->_Controller->_tmpPath . $type . DS . $table . '.php');	
+	}
 
+
+/**
+ * データファイルを削除する
+ *
+ * @param bool $isPlugin
+ * @param string $table
+ */
+	public function deleteCsv($isPlugin, $table) {
+		if(!$isPlugin) {
+			$type = $this->coreFolder;
+		} else {
+			$type = 'plugin';
+		}
+		unlink($this->_Controller->_tmpPath . $type . DS . $table . '.csv');
+	}
+	
+/**
+ * コアのスキーマで上書きする 
+ */
+	public function writeNewSchema() {
+		$path = BASER_CONFIGS . 'schema' . DS;
+		$Folder = new Folder($path);
+		$files = $Folder->read(true, true, true);
+		foreach($files[1] as $file) {
+			copy($file, $this->_Controller->_tmpPath . $this->coreFolder . DS . basename($file));
+		}
+		foreach($this->_defaultPlugins as $plugin) {
+			$path = BASER_PLUGINS . $plugin . DS . 'Config' . DS . 'schema' . DS;
+			$Folder = new Folder($path);
+			$files = $Folder->read(true, true, true);
+			foreach($files[1] as $file) {
+				copy($file, $this->_Controller->_tmpPath . 'plugin' . DS . basename($file));
+			}
+		}
+	}
+
+/**
+ * マイグレーションテーブルよりCSVを書き出す
+ * 
+ * @param string $table
+ */
+	public function writeCsv($isPlugin, $table) {
+		if(!$isPlugin) {
+			$type = $this->coreFolder;
+		} else {
+			$type = 'plugin';
+		}
+		// CSVを書き出す
+		$this->_newDb->writeCsv(
+			[
+				'path' => $this->_Controller->_tmpPath . $type . DS . $table . '.csv',
+				'encoding' => 'SJIS',
+				'table' => $table,
+				'init' => false,
+				'plugin' => null
+			]
+		);
 	}
 	
 }
