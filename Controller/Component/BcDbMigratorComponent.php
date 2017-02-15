@@ -287,9 +287,11 @@ class BcDbMigratorComponent extends Component {
 		} else {
 			$type = 'plugin';
 		}
-		unlink($this->_Controller->_tmpPath . $type . DS . $table . '.php');	
+		$path = $this->_Controller->_tmpPath . $type . DS . $table . '.php';
+		if(file_exists($path)) {
+			unlink($this->_Controller->_tmpPath . $type . DS . $table . '.php');
+		}
 	}
-
 
 /**
  * データファイルを削除する

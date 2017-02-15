@@ -72,6 +72,8 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->_updatePage();
 		// ブログコンテンツ
 		$this->_updateBlogContent();
+		// ブログ記事
+		$this->_updateBlogPost();
 		// メールコンテンツ
 		$this->_updateMailContent();
 		// プラグイン
@@ -113,7 +115,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->writeCsv(false, 'contents');
 		$this->writeCsv(false, 'sites');
 		$this->writeCsv(false, 'site_configs');
-		$this->writeCsv(false, 'site_indices');
+		$this->writeCsv(false, 'search_indices');
 		$this->writeCsv(false, 'content_links');
 		$this->writeCsv(false, 'plugins');
 		$this->writeCsv(true, 'blog_contents');
@@ -132,6 +134,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->_newDb->truncate('pages');
 		$this->_newDb->truncate('site_configs');
 		$this->_newDb->truncate('plugins');
+		$this->_newDb->truncate('blog_posts');
 	}
 
 /**
@@ -544,6 +547,18 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 					);
 				}
 			}
+		}
+	}
+
+/**
+ * ブログ記事の検索インデックスを更新する
+ */
+	protected function _updateBlogPost() {
+		$BlogPost = ClassRegistry::init('BlogPost');
+		$blogPosts = $this->readCsv(true, 'blog_posts');
+		foreach($blogPosts as $blogPost) {
+			$BlogPost->create($blogPost);
+			$BlogPost->save();
 		}
 	}
 }
