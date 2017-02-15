@@ -102,7 +102,6 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->deleteCsv(false, 'menus');
 		$this->deleteCsv(false, 'page_categories');
 		$this->deleteCsv(false, 'plugin_contents');
-		$this->deleteCsv(false, 'global_menus');
 		$this->deleteCsv(true, 'messages');
 	}
 	
