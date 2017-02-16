@@ -159,7 +159,10 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _updatePlugin() {
 		$Plugin = ClassRegistry::init('Plugin');
 		$plugins =  $this->readCsv(false, 'plugins');
-		foreach($plugins as $plugin) {
+		$corePlugins = Configure::read('BcApp.corePlugins');
+		foreach($plugins as $plugin) {if (in_array($plugin['name'], $corePlugins)) {
+				$plugin['version'] = "4.0.2";
+			}
 			$plugin['status'] = false;
 			$Plugin->create($plugin);
 			$Plugin->save();
