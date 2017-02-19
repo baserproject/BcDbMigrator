@@ -72,6 +72,8 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->_updatePage();
 		// ブログコンテンツ
 		$this->_updateBlogContent();
+		// ブログ記事
+		$this->_updateBlogPost();
 		// メールコンテンツ
 		$this->_updateMailContent();
 		// プラグイン
@@ -100,7 +102,6 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->deleteCsv(false, 'menus');
 		$this->deleteCsv(false, 'page_categories');
 		$this->deleteCsv(false, 'plugin_contents');
-		$this->deleteCsv(false, 'global_menus');
 		$this->deleteCsv(true, 'messages');
 	}
 	
@@ -113,7 +114,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->writeCsv(false, 'contents');
 		$this->writeCsv(false, 'sites');
 		$this->writeCsv(false, 'site_configs');
-		$this->writeCsv(false, 'site_indices');
+		$this->writeCsv(false, 'search_indices');
 		$this->writeCsv(false, 'content_links');
 		$this->writeCsv(false, 'plugins');
 		$this->writeCsv(true, 'blog_contents');
@@ -132,6 +133,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->_newDb->truncate('pages');
 		$this->_newDb->truncate('site_configs');
 		$this->_newDb->truncate('plugins');
+		$this->_newDb->truncate('blog_posts');
 	}
 
 /**
@@ -157,7 +159,10 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _updatePlugin() {
 		$Plugin = ClassRegistry::init('Plugin');
 		$plugins =  $this->readCsv(false, 'plugins');
-		foreach($plugins as $plugin) {
+		$corePlugins = Configure::read('BcApp.corePlugins');
+		foreach($plugins as $plugin) {if (in_array($plugin['name'], $corePlugins)) {
+				$plugin['version'] = "4.0.2";
+			}
 			$plugin['status'] = false;
 			$Plugin->create($plugin);
 			$Plugin->save();
@@ -544,6 +549,18 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 					);
 				}
 			}
+		}
+	}
+
+/**
+ * ブログ記事の検索インデックスを更新する
+ */
+	protected function _updateBlogPost() {
+		$BlogPost = ClassRegistry::init('BlogPost');
+		$blogPosts = $this->readCsv(true, 'blog_posts');
+		foreach($blogPosts as $blogPost) {
+			$BlogPost->create($blogPost);
+			$BlogPost->save();
 		}
 	}
 }

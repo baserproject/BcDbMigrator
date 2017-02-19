@@ -16,7 +16,7 @@ class MigratorController extends AppController {
  * 一時フォルダ
  * @var string
  */
-	protected $_tmpPath = TMP . 'dbmigrator' . DS;
+	protected $_tmpPath = null;
 
 /**
  * マイグレーター名
@@ -36,6 +36,7 @@ class MigratorController extends AppController {
  */
 	public function beforeFilter() {
 		parent::beforeFilter();
+		$this->_tmpPath = TMP . 'dbmigrator' . DS;
 		$this->migrator = 'BcDbMigrator' . $this->getMajorVersion();
 		$migratorClass = $this->migrator . 'Component';
 		App::uses($migratorClass, 'BcDbMigrator.Controller/Component');

@@ -302,7 +302,6 @@ class BcDbMigratorComponent extends Component {
 		}
 	}
 
-
 /**
  * データファイルを削除する
  *

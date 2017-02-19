@@ -1,7 +1,7 @@
 BcDbMigrator
 ==========
 baserCMS Database Migrator
-Copyright 2008 - 2016, baserCMS Users Community  
+Copyright (c) baserCMS Users Community  
 
 Documentation
 -------------
