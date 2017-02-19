@@ -24,6 +24,13 @@ class BcDbMigratorComponent extends Component {
 	protected $_defaultPlugins;
 
 /**
+ * エンコーディング
+ * 
+ * @var string
+ */
+	public $encoding;
+
+/**
  * DBソース
  * 
  * @var DboSource
@@ -64,7 +71,8 @@ class BcDbMigratorComponent extends Component {
 /**
  * マイグレーション実行
  */
-	public function migrate() {
+	public function migrate($encoding) {
+		$this->encoding = $encoding;
 		$this->_setUp();
 		$result = true;
 		if($this->migrateSchema()) {
@@ -185,7 +193,7 @@ class BcDbMigratorComponent extends Component {
 				if(preg_match('/\.csv/', $file)) {
 					$db->loadCsv([
 						'path' => $file,
-						'encoding' => 'SJIS'
+						'encoding' => $this->encoding
 					]);
 				}
 			}
@@ -212,6 +220,7 @@ class BcDbMigratorComponent extends Component {
 	protected function _setDbConfigToAllModels($dbConfigKeyName) {
 		$this->_setDbConfigToModels(null, App::objects('Model'), $dbConfigKeyName);
 		foreach($this->_defaultPlugins as $plugin) {
+			CakePlugin::load($plugin);
 			$this->_setDbConfigToModels($plugin, App::objects($plugin . '.Model', null, false), $dbConfigKeyName);
 		}
 	}
@@ -272,7 +281,7 @@ class BcDbMigratorComponent extends Component {
 		} else {
 			$type = 'plugin';
 		}
-		return $this->_newDb->loadCsvToArray($this->_Controller->_tmpPath . $type . DS . $table . '.csv', 'SJIS');
+		return $this->_newDb->loadCsvToArray($this->_Controller->_tmpPath . $type . DS . $table . '.csv', $this->encoding);
 	}
 
 /**
@@ -287,7 +296,10 @@ class BcDbMigratorComponent extends Component {
 		} else {
 			$type = 'plugin';
 		}
-		unlink($this->_Controller->_tmpPath . $type . DS . $table . '.php');	
+		$path = $this->_Controller->_tmpPath . $type . DS . $table . '.php';
+		if(file_exists($path)) {
+			unlink($path);	
+		}
 	}
 
 
@@ -341,7 +353,7 @@ class BcDbMigratorComponent extends Component {
 		$this->_newDb->writeCsv(
 			[
 				'path' => $this->_Controller->_tmpPath . $type . DS . $table . '.csv',
-				'encoding' => 'SJIS',
+				'encoding' => 'UTF-8',
 				'table' => $table,
 				'init' => false,
 				'plugin' => null

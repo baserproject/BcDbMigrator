@@ -95,7 +95,7 @@ class MigratorController extends AppController {
 			return false;
 		}
 		
-		if(!$this->{$this->migrator}->migrate()) {
+		if(!$this->{$this->migrator}->migrate($data['Migrator']['encoding'])) {
 			return false;
 		}
 		
