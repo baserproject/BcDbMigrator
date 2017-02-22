@@ -466,7 +466,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 			"editor_styles" => $siteConfig['editor_styles'],
 			"editor_enter_br" => $siteConfig['editor_enter_br'],
 			"admin_side_banner" => $siteConfig['admin_side_banner'],
-			"use_universal_analytics" => $siteConfig['use_universal_analytics'],
+			"use_universal_analytics" => @$siteConfig['use_universal_analytics'],
 			"google_maps_api_key" => @$siteConfig['google_maps_api_key'],
 			"main_site_display_name" => "パソコン",
 			"use_site_device_setting" => true,

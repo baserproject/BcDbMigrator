@@ -19,6 +19,13 @@ $(function(){
 
 <table cellpadding="0" cellspacing="0" class="list-table" id="ListTable">
 	<tr>
+		<th class="col-head"><span class="required">*</span>&nbsp;<?php echo $this->BcForm->label('Migrator.encoding', '文字コード') ?></th>
+		<td class="col-input">
+			<?php echo $this->BcForm->input('Migrator.encoding', array('type' => 'radio', 'options' => array('auto' => '自動判別', 'UTF-8' => 'UTF-8', 'SJIS-win' => 'SJIS'), 'value' => 'auto')) ?>
+			<?php echo $this->BcForm->error('Migrator.encoding') ?>
+		</td>
+	</tr>
+	<tr>
 		<th class="col-head"><span class="required">*</span>&nbsp;<?php echo $this->BcForm->label('Migrator.backup', 'バックアップファイル') ?></th>
 		<td class="col-input">
 			<?php echo $this->BcForm->input('Migrator.backup', array('type' => 'file')) ?>
