@@ -54,6 +54,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->deleteSchema(true, 'messages');
 		// 新しいスキーマを一時フォルダに保存
 		$this->writeNewSchema();
+		$this->deleteSchema(true, 'mail_messages');
 		return true;
 	}
 	
@@ -66,6 +67,8 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$siteName = $this->_getSiteName();
 		// トップフォルダ生成
 		$this->_addTopFolder($siteName);
+		// ユーザーグループ
+		$this->_updateUserGroup();
 		// ページカテゴリ
 		$this->_updatePageCategory($siteName);
 		// ページ
@@ -113,6 +116,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->writeCsv(false, 'content_folders');
 		$this->writeCsv(false, 'contents');
 		$this->writeCsv(false, 'sites');
+		$this->writeCsv(false, 'user_groups');
 		$this->writeCsv(false, 'site_configs');
 		$this->writeCsv(false, 'search_indices');
 		$this->writeCsv(false, 'content_links');
@@ -127,6 +131,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _resetNewTable() {
 		$this->_newDb->truncate('contents');
 		$this->_newDb->truncate('content_folders');
+		$this->_newDb->truncate('user_groups');
 		$this->_newDb->truncate('sites');
 		$this->_newDb->truncate('blog_contents');
 		$this->_newDb->truncate('mail_contents');
@@ -314,6 +319,32 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 			];
 			$Page->create($data);
 			$Page->save();
+		}
+	}
+
+/**
+ * Update UserGroup
+ */
+	protected function _updateUserGroup() {
+		$UserGroup = ClassRegistry::init('UserGroup');
+		$userGroups = $this->readCsv(false, 'user_groups');
+		foreach($userGroups as $userGroup) {
+			$useMoveContents = false;
+			if($userGroup['id'] == 1) {
+				$useMoveContents = true;
+			}
+			$data = [
+				'UserGroup' => [
+					'name' => $userGroup['name'],
+					'title' => $userGroup['title'],
+					'auth_prefix' => $userGroup['auth_prefix'],
+					'use_admin_globalmenu' => $userGroup['use_admin_globalmenu'],
+					'default_favorites' => $userGroup['default_favorites'],
+					'use_move_contents' => $useMoveContents
+				],
+			];
+			$UserGroup->create($data);
+			$UserGroup->save();
 		}
 	}
 
