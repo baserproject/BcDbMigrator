@@ -16,7 +16,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * @var array
  */
 	public $message = [
-		'baserCMS 3.0.9 以上のバックアップデータの basrCMS 4系 への変換のみサポートしています。',
+		'baserCMS 3.0.9 以上のバックアップデータの basrCMS 4系 への変換のみサポートしています。<br>また、プラグインは無効化された状態でデータが作成されますので、バックアップ復旧後、有効化する必要がありますのでご注意ください。',
 	];
 
 /**
@@ -166,7 +166,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$plugins =  $this->readCsv(false, 'plugins');
 		$corePlugins = Configure::read('BcApp.corePlugins');
 		foreach($plugins as $plugin) {if (in_array($plugin['name'], $corePlugins)) {
-				$plugin['version'] = "4.0.2";
+				$plugin['version'] = getVersion();
 			}
 			$plugin['status'] = false;
 			$Plugin->create($plugin);
