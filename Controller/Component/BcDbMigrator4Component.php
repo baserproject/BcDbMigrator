@@ -16,7 +16,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * @var array
  */
 	public $message = [
-		'baserCMS 3.0.9 以上のバックアップデータの basrCMS 4.0.2 への変換のみサポートしています。',
+		'baserCMS 3.0.9 以上のバックアップデータの basrCMS 4系 への変換のみサポートしています。',
 	];
 
 /**
