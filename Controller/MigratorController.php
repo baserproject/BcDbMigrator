@@ -120,11 +120,44 @@ class MigratorController extends AppController {
 		}
 
 		// ZIPファイルを解凍する
-		$Simplezip = new Simplezip();
-		if (!$Simplezip->unzip($targetPath, $this->_tmpPath)) {
+		App::uses('BcZip', 'Lib');
+		$BcZip = new BcZip();
+		if(!$BcZip->extract($targetPath, $this->_tmpPath)) {
 			return false;
 		}
-
+//		$Simplezip = new Simplezip();
+//		if (!$Simplezip->unzip($targetPath, $this->_tmpPath)) {
+//			return false;
+//		}
+		$Folder = new Folder($this->_tmpPath);
+		$files = $Folder->read();
+		if(empty($files[0])) {
+			return false;
+		}
+		$valid = false;
+		$directFolder = '';
+		foreach($files[0] as $file) {
+			if($file === 'plugin') {
+				$valid = true;
+			}
+			$directFolder = $file;
+		}
+		if(!$valid) {
+			$Folder = new Folder($this->_tmpPath . DS . $directFolder);
+			$files = $Folder->read();
+			if(empty($files[0])) {
+				return false;
+			}
+			foreach($files[0] as $file) {
+				$Folder = new Folder();
+				$Folder->move([
+					'from' => $this->_tmpPath . DS . $directFolder . DS . $file,
+					'to' => $this->_tmpPath . DS . $file,
+					'chmod' => 777
+				]);
+			}
+			$Folder->delete($this->_tmpPath . DS . $directFolder);
+		}
 		@unlink($targetPath);
 		return true;
 	}

@@ -321,7 +321,7 @@ class BcDbMigratorComponent extends Component {
  * コアのスキーマで上書きする 
  */
 	public function writeNewSchema() {
-		$path = BASER_CONFIGS . 'schema' . DS;
+		$path = BASER_CONFIGS . 'Schema' . DS;
 		$Folder = new Folder($path);
 		$files = $Folder->read(true, true, true);
 		foreach($files[1] as $file) {
