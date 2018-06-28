@@ -62,27 +62,28 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * データのマイグレーションを実行する
  */
 	public function migrateData() {
+		$result = true;
 		$this->_resetNewTable();
 		// サイト名取得
 		$siteName = $this->_getSiteName();
 		// トップフォルダ生成
 		$this->_addTopFolder($siteName);
 		// ユーザーグループ
-		$this->_updateUserGroup();
+		if(!$this->_updateUserGroup()) $result = false;
 		// ページカテゴリ
-		$this->_updatePageCategory($siteName);
+		if(!$this->_updatePageCategory($siteName)) $result = false;
 		// ページ
-		$this->_updatePage();
+		if(!$this->_updatePage()) $result = false;
 		// ブログコンテンツ
-		$this->_updateBlogContent();
+		if(!$this->_updateBlogContent()) $result = false;
 		// ブログ記事
-		$this->_updateBlogPost();
+		if(!$this->_updateBlogPost()) $result = false;
 		// メールコンテンツ
-		$this->_updateMailContent();
+		if(!$this->_updateMailContent()) $result = false;
 		// プラグイン
-		$this->_updatePlugin();
+		if(!$this->_updatePlugin()) $result = false;
 		// サイト設定
-		$this->_updateSiteConfig();
+		if(!$this->_updateSiteConfig()) $result = false;
 		// メッセージテーブル
 		$this->_convertMessageData();
 		// CSVを出力する
@@ -95,7 +96,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 			'from' => $this->_Controller->_tmpPath . 'baser',
 			'to' => $this->_Controller->_tmpPath . 'core',
 		]);
-		return true;
+		return $result;
 	}
 
 /**
@@ -118,7 +119,6 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->writeCsv(false, 'sites');
 		$this->writeCsv(false, 'user_groups');
 		$this->writeCsv(false, 'site_configs');
-		$this->writeCsv(false, 'search_indices');
 		$this->writeCsv(false, 'content_links');
 		$this->writeCsv(false, 'plugins');
 		$this->writeCsv(true, 'blog_contents');
@@ -165,13 +165,18 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$Plugin = ClassRegistry::init('Plugin');
 		$plugins =  $this->readCsv(false, 'plugins');
 		$corePlugins = Configure::read('BcApp.corePlugins');
+		$result = true;
 		foreach($plugins as $plugin) {if (in_array($plugin['name'], $corePlugins)) {
 				$plugin['version'] = getVersion();
 			}
 			$plugin['status'] = false;
 			$Plugin->create($plugin);
-			$Plugin->save();
+			if(!$Plugin->save()) {
+				$this->log($Plugin->validationErrors);
+				$result = false;
+			}
 		}
+		return $result;
 	}
 /**
  * Add Top Folder
@@ -207,7 +212,11 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 			]
 		];
 		$ContentFolder->create($data);
-		$ContentFolder->save();
+		if(!$ContentFolder->save()) {
+			$this->log($ContentFolder->validationErrors);
+			return false;
+		}
+		return true;
 	}
 
 /**
@@ -222,6 +231,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->_setDbConfigToModel($PageCategory, $this->oldDbConfigKeyName);
 		$pageCategories = $PageCategory->find('all', ['order' => 'lft', 'recursive' => -1]);
 		$this->_parentIdMap = [];
+		$result = true;
 		foreach($pageCategories as $pageCategory) {
 			$pageCategory = $pageCategory['PageCategory'];
 			if(in_array($pageCategory['name'], ['mobile', 'smartphone'])) {
@@ -245,7 +255,10 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 					]
 				];
 				$Site->create($data);
-				$Site->save();
+				if(!$Site->save()) {
+					$this->log($Site->validationErrors);
+					$result = false;
+				}
 			} else {
 				$data = [
 					'ContentFolder' => [
@@ -273,10 +286,14 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 					]
 				];
 				$ContentFolder->create($data);
-				$ContentFolder->save();
+				if(!$ContentFolder->save()) {
+					$this->log($ContentFolder->validationErrors);
+					$result = false;
+				}
 			}
 			$this->_parentIdMap[$pageCategory['id']] = $ContentFolder->Content->id;
 		}
+		return $result;
 	}
 
 /**
@@ -284,7 +301,10 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  */
 	protected function _updatePage() {
 		$Page = ClassRegistry::init('Page');
+		$Page->searchIndexSaving = false;
+		$Page->fileSave = false;
 		$pages = $this->readCsv(false, 'pages');
+		$result = true;
 		foreach($pages as $page) {
 			$data = [
 				'Page' => [
@@ -303,11 +323,11 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 					"author_id" => $page['author_id'],
 					"layout_template" => "",
 					"status" => $page['status'],
-					"publish_begin" => $page['publish_begin'],
-					"publish_end" => $page['publish_end'],
+					"publish_begin" => ($page['publish_begin'] === '0000-00-00 00:00:00')? NULL : $page['publish_begin'],
+					"publish_end" => ($page['publish_end'] === '0000-00-00 00:00:00')? NULL : $page['publish_begin'],
 					"self_status" => $page['status'],
-					"self_publish_begin" => $page['publish_begin'],
-					"self_publish_end" => $page['publish_end'],
+					"self_publish_begin" => ($page['publish_begin'] === '0000-00-00 00:00:00')? NULL : $page['publish_begin'],
+					"self_publish_end" => ($page['publish_end'] === '0000-00-00 00:00:00')? NULL : $page['publish_begin'],
 					"exclude_search" => $page['exclude_search'],
 					"created_date" => $page['created'],
 					"modified_date" => $page['modified'],
@@ -318,8 +338,12 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 				]
 			];
 			$Page->create($data);
-			$Page->save();
+			if(!$Page->save()) {
+				$this->log($Page->validationErrors);
+				$result = false;
+			}
 		}
+		return $result;
 	}
 
 /**
@@ -328,6 +352,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _updateUserGroup() {
 		$UserGroup = ClassRegistry::init('UserGroup');
 		$userGroups = $this->readCsv(false, 'user_groups');
+		$result = true;
 		foreach($userGroups as $userGroup) {
 			$useMoveContents = false;
 			if($userGroup['id'] == 1) {
@@ -344,8 +369,12 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 				],
 			];
 			$UserGroup->create($data);
-			$UserGroup->save();
+			if(!$UserGroup->save()) {
+				$this->log($UserGroup->validationErrors);
+				$result = false;
+			}
 		}
+		return $result;
 	}
 
 /**
@@ -354,6 +383,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _updateBlogContent() {
 		$BlogContent = ClassRegistry::init('BlogContent');
 		$blogContents = $this->readCsv(true, 'blog_contents');
+		$result = true;
 		foreach($blogContents as $blogContent) {
 			$data = [
 				'BlogContent' => [
@@ -397,11 +427,12 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 				]
 			];
 			$BlogContent->create($data);
-			$data = $BlogContent->save();
-			// 検索インデックス生成の為再度保存
-			$BlogContent->set($data);
-			$BlogContent->save();
+			if(!$BlogContent->save()) {
+				$this->log($BlogContent->validationErrors);
+				$result = false;
+			}
 		}
+		return $result;
 	}
 	
 /**
@@ -410,6 +441,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _updateMailContent() {
 		$MailContent = ClassRegistry::init('MailContent');
 		$mailContents = $this->readCsv(true, 'mail_contents');
+		$result = true;
 		foreach($mailContents as $mailContent) {
 			$data = [
 				'MailContent' => [
@@ -455,11 +487,12 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 				]
 			];
 			$MailContent->create($data);
-			$data = $MailContent->save();
-			// 検索インデックス生成の為再度保存
-			$MailContent->set($data);
-			$MailContent->save();
+			if(!$MailContent->save()) {
+				$this->log($MailContent->validationErrors);
+				$result = false;
+			}
 		}
+		return $result;
 	}
 
 /**
@@ -492,7 +525,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 			"category_permission" => $siteConfig['category_permission'],
 			"admin_theme" => $siteConfig['admin_theme'],
 			"login_credit" => $siteConfig['login_credit'],
-			"first_access" => $siteConfig['first_access'],
+			"first_access" => @$siteConfig['first_access'],
 			"editor" => $siteConfig['editor'],
 			"editor_styles" => $siteConfig['editor_styles'],
 			"editor_enter_br" => $siteConfig['editor_enter_br'],
@@ -505,7 +538,11 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 			"smtp_tls" => $siteConfig['smtp_tls'],
 			"contents_sort_last_modified" => ""
 		];
-		$SiteConfig->saveKeyValue($data);
+		if(!$SiteConfig->saveKeyValue($data)) {
+			$this->log($SiteConfig->validationErrors);
+			return false;
+		}
+		return true;
 	}
 	
 	protected function _getNewMessageTableName($oldName) {
@@ -584,14 +621,23 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 	}
 
 /**
- * ブログ記事の検索インデックスを更新する
+ * ブログ記事
  */
 	protected function _updateBlogPost() {
 		$BlogPost = ClassRegistry::init('BlogPost');
+		$BlogPost->searchIndexSaving = false;
 		$blogPosts = $this->readCsv(true, 'blog_posts');
+		$result = true;
 		foreach($blogPosts as $blogPost) {
+			if(empty($blogPost['posts_date'])) {
+				$blogPost['posts_date'] = date('Y-m-d', 0);
+			}
 			$BlogPost->create($blogPost);
-			$BlogPost->save();
+			if(!$BlogPost->save()) {
+				$this->log($BlogPost->validationErrors);
+				$result = false;
+			}
 		}
+		return $result;
 	}
 }

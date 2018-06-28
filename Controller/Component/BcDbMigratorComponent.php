@@ -66,6 +66,8 @@ class BcDbMigratorComponent extends Component {
 		$this->_defaultPlugins = Configure::read('BcApp.corePlugins');
 		$this->_newDb = $this->_createMigrationDb($this->newDbConfigKeyName, $this->newDbPrefix);
 		$this->_oldDb = $this->_createMigrationDb($this->oldDbConfigKeyName, $this->oldDbPrefix);
+		ini_set('memory_limit', '-1');
+		set_time_limit(0);
 	}
 	
 /**
@@ -104,6 +106,10 @@ class BcDbMigratorComponent extends Component {
  * マイグレーション開始処理 
  */
 	public function _setUp() {
+		/* @var DboSource $db */
+		$db = ConnectionManager::getDataSource($this->oldDbConfigKeyName);
+		$db->execute("SET SESSION sql_mode = ''");
+		$this->_deleteMigrationTables();
 		$this->_createMigrationTables();
 		$this->_setDbConfigToAllModels($this->newDbConfigKeyName);
 	}
@@ -189,12 +195,14 @@ class BcDbMigratorComponent extends Component {
 		$Folder = new Folder($path);
 		$files = $Folder->read(true, true, true);
 		if(!empty($files[1])) {
-			foreacH($files[1] as $file) {
+			foreach($files[1] as $file) {
 				if(preg_match('/\.csv/', $file)) {
-					$db->loadCsv([
-						'path' => $file,
-						'encoding' => $this->encoding
-					]);
+					try {
+						$db->loadCsv([
+							'path' => $file,
+							'encoding' => $this->encoding
+						]);
+					} catch(BcException $e) {}
 				}
 			}
 		}

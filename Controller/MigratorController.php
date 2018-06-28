@@ -53,14 +53,13 @@ class MigratorController extends AppController {
 	public function admin_index() {
 		$this->pageTitle = 'baserCMS DBマイグレーター';
 		if($this->request->data) {
-			set_time_limit(0);
 			if($this->_migrate($this->request->data)) {
 				$version = str_replace(' ', '_', $this->getBaserVersion());
 				$this->Session->write('BcDbMigrator.file', 'baserbackup_' . $version . '_' . date('Ymd_His'));
 				$this->setMessage('バックアップデータのマイグレーションが完了しました。ダウンロードボタンよりダウンロードしてください。');
 				$this->redirect('index');
 			} else {
-				$this->setMessage('バックアップデータのマイグレーションが失敗しました。バックアップデータに問題があります。', true);
+				$this->setMessage('バックアップデータのマイグレーションが失敗しました。バックアップデータに問題があります。ログファイルを確認してください。', true);
 				$this->redirect('index');
 			}
 		}
@@ -166,6 +165,7 @@ class MigratorController extends AppController {
  * ダウンロード 
  */
 	public function admin_download() {
+		$this->autoRender = false;
 		$fileName = $this->Session->read('BcDbMigrator.file');
 		
 		if(!$fileName || !is_dir($this->_tmpPath)) {
