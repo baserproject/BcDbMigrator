@@ -104,6 +104,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  */
 	protected function _deleteCsv() {
 		$this->deleteCsv(false, 'menus');
+		$this->deleteCsv(false, 'global_menus');
 		$this->deleteCsv(false, 'page_categories');
 		$this->deleteCsv(false, 'plugin_contents');
 		$this->deleteCsv(true, 'messages');
@@ -591,6 +592,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 					
 					$contents = $File->read();
 					$contents = preg_replace('/class ' . preg_quote($oldClass, '/') . 'Schema/', 'class ' . $newClass . 'Schema', $contents);
+					$contents = preg_replace('/\$' . preg_quote($oldName, '/') . ' =/', '$' . $newName . ' =', $contents);
 					$contents = preg_replace('/\$file = \'' . preg_quote($oldName, '/') . '\.php/', '$file = \'' . $newName . '.php', $contents);
 					$contents = preg_replace('/\$connection = \'plugin\'/', '$connection = \'default\'', $contents);
 					$File->write($contents);
