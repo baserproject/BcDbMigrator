@@ -1,13 +1,13 @@
 <?php
+namespace BcDbMigrator\Controller\Component;
 /**
  * include files
  */
-App::uses('Component', 'Controller');
 
 /**
  * BcDbMigratorComponent
  */
-class BcDbMigratorComponent extends Component {
+class BcDbMigratorComponent extends \Cake\Controller\Component {
 
 /**
  * コントローラー
@@ -63,7 +63,7 @@ class BcDbMigratorComponent extends Component {
 	public function startup(Controller $controller) {
 		parent::startup($controller);
 		$this->_Controller = $controller;
-		$this->_defaultPlugins = Configure::read('BcApp.corePlugins');
+		$this->_defaultPlugins = \Cake\Core\Configure::read('BcApp.corePlugins');
 		$this->_newDb = $this->_createMigrationDb($this->newDbConfigKeyName, $this->newDbPrefix);
 		$this->_oldDb = $this->_createMigrationDb($this->oldDbConfigKeyName, $this->oldDbPrefix);
 		ini_set('memory_limit', '-1');
@@ -130,7 +130,7 @@ class BcDbMigratorComponent extends Component {
 		// 新しいバージョンのテーブル
 		$this->_Controller->BcManager->constructionTable('Core', $this->newDbConfigKeyName);
 		$this->_Controller->BcManager->loadDefaultDataPattern($this->newDbConfigKeyName, null, 'default', 'core', 'core');
-		$Plugin = ClassRegistry::init('Plugin');
+		$Plugin = \Cake\ORM\TableRegistry::getTableLocator()->get('Plugin');
 		$Plugin->useDbConfig = $this->newDbConfigKeyName;
 		foreach($this->_defaultPlugins as $plugin) {
 			$Plugin->initDb($plugin);
@@ -158,12 +158,12 @@ class BcDbMigratorComponent extends Component {
  * @return bool
  */
 	protected function _createTableBySchema($db, $path) {
-		$Folder = new Folder($path);
+		$Folder = new \Cake\Filesystem\Folder($path);
 		$files = $Folder->read(true, true, true);
 		if(!empty($files[1])) {
 			foreacH($files[1] as $file) {
 				if(preg_match('/\.php$/', $file)) {
-					$File = new File($file);
+					$File = new \Cake\Filesystem\File($file);
 					$contents = $File->read();
 					$contents = preg_replace('/class (.+?)Schema/', 'class ${1}OldSchema', $contents);
 					$File->write($contents);
@@ -192,7 +192,7 @@ class BcDbMigratorComponent extends Component {
  * @return bool
  */
 	protected function _loadCsv($db, $path) {
-		$Folder = new Folder($path);
+		$Folder = new \Cake\Filesystem\Folder($path);
 		$files = $Folder->read(true, true, true);
 		if(!empty($files[1])) {
 			foreach($files[1] as $file) {
@@ -250,7 +250,7 @@ class BcDbMigratorComponent extends Component {
 				if($plugin) {
 					$model = $plugin . '.' . $model;
 				}
-				$modelClass = ClassRegistry::init($model);
+				$modelClass = \Cake\ORM\TableRegistry::getTableLocator()->get($model);
 				$this->_setDbConfigToModel($modelClass, $dbConfigKeyName);
 			}
 		}
@@ -330,14 +330,14 @@ class BcDbMigratorComponent extends Component {
  */
 	public function writeNewSchema() {
 		$path = BASER_CONFIGS . 'Schema' . DS;
-		$Folder = new Folder($path);
+		$Folder = new \Cake\Filesystem\Folder($path);
 		$files = $Folder->read(true, true, true);
 		foreach($files[1] as $file) {
 			copy($file, $this->_Controller->_tmpPath . $this->coreFolder . DS . basename($file));
 		}
 		foreach($this->_defaultPlugins as $plugin) {
 			$path = BASER_PLUGINS . $plugin . DS . 'Config' . DS . 'schema' . DS;
-			$Folder = new Folder($path);
+			$Folder = new \Cake\Filesystem\Folder($path);
 			$files = $Folder->read(true, true, true);
 			foreach($files[1] as $file) {
 				copy($file, $this->_Controller->_tmpPath . 'plugin' . DS . basename($file));

@@ -1,10 +1,8 @@
 <?php
+namespace BcDbMigrator\Controller\Component;
 /**
  * include files
  */
-App::uses('Component', 'Controller');
-App::uses('BcDbMigratorComponent', 'BcDbMigrator.Controller/Component');
-App::uses('BcDbMigratorInterface', 'BcDbMigrator.Controller/Component');
 
 /**
  * BcDbMigrator4Component
@@ -91,7 +89,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 		// 不要なCSVを削除
 		$this->_deleteCsv();
 		// フォルダ名変更
-		$Folder = new Folder();
+		$Folder = new \Cake\Filesystem\Folder();
 		$Folder->move([
 			'from' => $this->_Controller->_tmpPath . 'baser',
 			'to' => $this->_Controller->_tmpPath . 'core',
@@ -163,12 +161,12 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * Update Plugin 
  */
 	protected function _updatePlugin() {
-		$Plugin = ClassRegistry::init('Plugin');
+		$Plugin = \Cake\ORM\TableRegistry::getTableLocator()->get('Plugin');
 		$plugins =  $this->readCsv(false, 'plugins');
-		$corePlugins = Configure::read('BcApp.corePlugins');
+		$corePlugins = \Cake\Core\Configure::read('BcApp.corePlugins');
 		$result = true;
 		foreach($plugins as $plugin) {if (in_array($plugin['name'], $corePlugins)) {
-				$plugin['version'] = getVersion();
+				$plugin['version'] =\BaserCore\Utility\BcUtil::getVersion();
 			}
 			$plugin['status'] = false;
 			$Plugin->create($plugin);
@@ -185,7 +183,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * @param string $siteName
  */
 	protected function _addTopFolder($siteName) {
-		$ContentFolder = ClassRegistry::init('ContentFolder');
+		$ContentFolder = \Cake\ORM\TableRegistry::getTableLocator()->get('ContentFolder');
 		$data = [
 			'ContentFolder' => [
 				'folder_template' => "",
@@ -226,9 +224,9 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * @param string $siteName
  */
 	protected function _updatePageCategory($siteName) {
-		$ContentFolder = ClassRegistry::init('ContentFolder');
-		$Site = ClassRegistry::init('Site');
-		$PageCategory = ClassRegistry::init('PageCategory');
+		$ContentFolder = \Cake\ORM\TableRegistry::getTableLocator()->get('ContentFolder');
+		$Site = \Cake\ORM\TableRegistry::getTableLocator()->get('Site');
+		$PageCategory = \Cake\ORM\TableRegistry::getTableLocator()->get('PageCategory');
 		$this->_setDbConfigToModel($PageCategory, $this->oldDbConfigKeyName);
 		$pageCategories = $PageCategory->find('all', ['order' => 'lft', 'recursive' => -1]);
 		$this->_parentIdMap = [];
@@ -301,7 +299,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * Update Page
  */
 	protected function _updatePage() {
-		$Page = ClassRegistry::init('Page');
+		$Page = \Cake\ORM\TableRegistry::getTableLocator()->get('Page');
 		$Page->searchIndexSaving = false;
 		$Page->fileSave = false;
 		$pages = $this->readCsv(false, 'pages');
@@ -351,7 +349,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * Update UserGroup
  */
 	protected function _updateUserGroup() {
-		$UserGroup = ClassRegistry::init('UserGroup');
+		$UserGroup = \Cake\ORM\TableRegistry::getTableLocator()->get('UserGroup');
 		$userGroups = $this->readCsv(false, 'user_groups');
 		$result = true;
 		foreach($userGroups as $userGroup) {
@@ -382,7 +380,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * Update BlogContent
  */
 	protected function _updateBlogContent() {
-		$BlogContent = ClassRegistry::init('BlogContent');
+		$BlogContent = \Cake\ORM\TableRegistry::getTableLocator()->get('BlogContent');
 		$blogContents = $this->readCsv(true, 'blog_contents');
 		$result = true;
 		foreach($blogContents as $blogContent) {
@@ -440,7 +438,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * Update MailContent
  */
 	protected function _updateMailContent() {
-		$MailContent = ClassRegistry::init('MailContent');
+		$MailContent = \Cake\ORM\TableRegistry::getTableLocator()->get('MailContent');
 		$mailContents = $this->readCsv(true, 'mail_contents');
 		$result = true;
 		foreach($mailContents as $mailContent) {
@@ -500,7 +498,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * Update SiteConfig
  */
 	protected function _updateSiteConfig() {
-		$SiteConfig = ClassRegistry::init('SiteConfig');
+		$SiteConfig = \Cake\ORM\TableRegistry::getTableLocator()->get('SiteConfig');
 		$this->_setDbConfigToModel($SiteConfig, $this->oldDbConfigKeyName);
 		$siteConfig = $SiteConfig->findExpanded();
 		$this->_setDbConfigToModel($SiteConfig, $this->newDbConfigKeyName);
@@ -574,7 +572,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * Convert Message Schema
  */
 	protected function _convertMessageSchema() {
-		$Folder = new Folder($this->_Controller->_tmpPath . 'plugin');
+		$Folder = new \Cake\Filesystem\Folder($this->_Controller->_tmpPath . 'plugin');
 		$files = $Folder->read(true, true, false);
 		foreach($files[1] as $file) {
 			if(preg_match('/messages\.php$/', $file)) {
@@ -586,9 +584,9 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
 						$this->_Controller->_tmpPath . 'plugin' . DS . $file,
 						$this->_Controller->_tmpPath . 'plugin' . DS . $newName . '.php'
 					);
-					$File = new File($this->_Controller->_tmpPath . 'plugin' . DS . $newName . '.php');
-					$oldClass = Inflector::camelize(basename($file, '.php'));
-					$newClass = Inflector::camelize($newName);
+					$File = new \Cake\Filesystem\File($this->_Controller->_tmpPath . 'plugin' . DS . $newName . '.php');
+					$oldClass = \Cake\Utility\Inflector::camelize(basename($file, '.php'));
+					$newClass = \Cake\Utility\Inflector::camelize($newName);
 					
 					$contents = $File->read();
 					$contents = preg_replace('/class ' . preg_quote($oldClass, '/') . 'Schema/', 'class ' . $newClass . 'Schema', $contents);
@@ -606,7 +604,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * Convert Message Data
  */
 	protected function _convertMessageData() {
-		$Folder = new Folder($this->_Controller->_tmpPath . 'plugin');
+		$Folder = new \Cake\Filesystem\Folder($this->_Controller->_tmpPath . 'plugin');
 		$files = $Folder->read(true, true, false);
 		foreach($files[1] as $file) {
 			if(preg_match('/messages\.csv/', $file)) {
@@ -626,7 +624,7 @@ class BcDbMigrator4Component extends BcDbMigratorComponent implements BcDbMigrat
  * ブログ記事
  */
 	protected function _updateBlogPost() {
-		$BlogPost = ClassRegistry::init('BlogPost');
+		$BlogPost = \Cake\ORM\TableRegistry::getTableLocator()->get('BlogPost');
 		$BlogPost->searchIndexSaving = false;
 		$blogPosts = $this->readCsv(true, 'blog_posts');
 		$result = true;
