@@ -6,5 +6,5 @@ return [
 	'author' => 'baserCMS Users Community',
 	'url' => 'http://basercms.net',
 	'adminLink' => [  'admin' => true,  'plugin' => 'BcDbMigrator',  'controller' => 'Migrator',  'action' => 'index',],
-	'installMessage' => ,
+	'installMessage' => '',
 ];
