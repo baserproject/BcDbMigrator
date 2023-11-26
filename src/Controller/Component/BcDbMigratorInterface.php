@@ -1,7 +1,15 @@
 <?php
+
 namespace BcDbMigrator\Controller\Component;
-interface BcDbMigratorInterface {
+
+/**
+ * BcDbMigratorInterface
+ */
+interface BcDbMigratorInterface
+{
 	public function getMessage();
+	
 	public function migrateSchema();
+	
 	public function migrateData();
 }
