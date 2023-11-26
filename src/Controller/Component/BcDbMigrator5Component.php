@@ -42,17 +42,6 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	}
 	
 	/**
-	 * startup
-	 * @param EventInterface $event
-	 * @return void
-	 */
-	public function startup(EventInterface $event)
-	{
-		$this->coreFolder = 'baser';
-		parent::startup($event);
-	}
-	
-	/**
 	 * スキーマのマイグレーションを実行
 	 */
 	public function migrateSchema()

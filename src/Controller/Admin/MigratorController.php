@@ -37,10 +37,10 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 				$version = str_replace(' ', '_', BcUtil::getVersion());
 				$this->getRequest()->getSession()->write('BcDbMigrator.file', 'baserbackup_' . $version . '_' . date('Ymd_His'));
 				$this->BcMessage->setInfo('バックアップデータのマイグレーションが完了しました。ダウンロードボタンよりダウンロードしてください。');
-				$this->redirect('index');
+				$this->redirect(['action' => 'index']);
 			} else {
 				$this->BcMessage->setWarning('バックアップデータのマイグレーションが失敗しました。バックアップデータに問題があります。ログファイルを確認してください。');
-				$this->redirect('index');
+				$this->redirect(['action' => 'index']);
 			}
 		}
 		if ($this->getRequest()->getSession()->read('BcDbMigrator.downloaded')) {
@@ -88,14 +88,14 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 	 */
 	protected function _migrate($data)
 	{
-		if (empty($data['Migrator']['backup']['tmp_name'])) {
+		if (empty($data['backup']['tmp_name'])) {
 			return false;
 		}
 		// アップロードファイルを一時フォルダに解凍
 		if (!$this->_unzipUploadFileToTmp($data)) {
 			return false;
 		}
-		if (!$this->{$this->migrator}->migrate($data['Migrator']['encoding'])) {
+		if (!$this->{$this->migrator}->migrate($data['encoding'])) {
 			return false;
 		}
 		return true;
@@ -112,8 +112,8 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 		$Folder = new \Cake\Filesystem\Folder();
 		$Folder->delete($this->_tmpPath);
 		$Folder->create($this->_tmpPath, 0777);
-		$targetPath = $this->_tmpPath . $data['Migrator']['backup']['name'];
-		if (!move_uploaded_file($data['Migrator']['backup']['tmp_name'], $targetPath)) {
+		$targetPath = $this->_tmpPath . $data['backup']['name'];
+		if (!move_uploaded_file($data['backup']['tmp_name'], $targetPath)) {
 			return false;
 		}
 		// ZIPファイルを解凍する
@@ -121,10 +121,6 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 		if (!$BcZip->extract($targetPath, $this->_tmpPath)) {
 			return false;
 		}
-		//		$Simplezip = new Simplezip();
-		//		if (!$Simplezip->unzip($targetPath, $this->_tmpPath)) {
-		//			return false;
-		//		}
 		$Folder = new \Cake\Filesystem\Folder($this->_tmpPath);
 		$files = $Folder->read();
 		if (empty($files[0])) {
@@ -146,7 +142,7 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 			}
 			foreach($files[0] as $file) {
 				$Folder = new \Cake\Filesystem\Folder();
-				$Folder->move(['from' => $this->_tmpPath . DS . $directFolder . DS . $file, 'to' => $this->_tmpPath . DS . $file, 'chmod' => 777]);
+				$Folder->move($this->_tmpPath . DS . $file, ['from' => $this->_tmpPath . DS . $directFolder . DS . $file, 'chmod' => 777]);
 			}
 			$Folder->delete($this->_tmpPath . DS . $directFolder);
 		}
