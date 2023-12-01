@@ -8,7 +8,6 @@ use BaserCore\Utility\BcContainerTrait;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\ConnectionInterface;
 use Cake\Datasource\ConnectionManager;
-use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Utility\Inflector;
 
@@ -31,7 +30,13 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 * BcDatabaseService
 	 * @var BcDatabaseServiceInterface
 	 */
-	private $dbService;
+	protected $dbService;
+	
+	/**
+	 * TableLocator
+	 * @var 
+	 */
+	protected $tableLocator;
 	
 	/**
 	 * デフォルトプラグイン
@@ -88,6 +93,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function startup(\Cake\Event\EventInterface $event)
 	{
+		$this->tableLocator = TableRegistry::getTableLocator();
 		$this->dbService = $this->getService(BcDatabaseServiceInterface::class);
 		$this->_defaultPlugins = \Cake\Core\Configure::read('BcApp.corePlugins');
 		$this->_newDb = $this->_createMigrationDb($this->newDbConfigKeyName, $this->newDbPrefix);
@@ -104,13 +110,13 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$this->encoding = $encoding;
 		$this->_setUp();
 		$result = true;
-//		if ($this->migrateSchema()) {
-//			if (!$this->migrateData()) {
-//				$result = false;
-//			}
-//		} else {
-//			$result = false;
-//		}
+		if ($this->migrateSchema()) {
+			if (!$this->migrateData()) {
+				$result = false;
+			}
+		} else {
+			$result = false;
+		}
 		$this->_tearDown();
 		return $result;
 	}
@@ -142,7 +148,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$db->execute("SET SESSION sql_mode = ''");
 		$this->_deleteMigrationTables();
 		$this->_createMigrationTables();
-		$this->_setDbConfigToAllModels($this->newDbConfigKeyName);
+//		$this->_setDbConfigToAllModels($this->newDbConfigKeyName);
 	}
 	
 	/**
@@ -362,7 +368,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		} else {
 			$type = 'plugin';
 		}
-		return $this->_newDb->loadCsvToArray($this->tmpPath . $type . DS . $table . '.csv', $this->encoding);
+		return $this->dbService->loadCsvToArray($this->tmpPath . $type . DS . $table . '.csv', $this->encoding);
 	}
 	
 	/**
@@ -378,7 +384,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		} else {
 			$type = 'plugin';
 		}
-		$path = $this->tmpPath . $type . DS . $table . '.php';
+		$path = $this->tmpPath . $type . DS . $table . 'Schema.php';
 		if (file_exists($path)) {
 			unlink($path);
 		}
@@ -405,20 +411,33 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function writeNewSchema()
 	{
-		$path = BASER_CONFIGS . 'Schema' . DS;
-		$Folder = new \Cake\Filesystem\Folder($path);
-		$files = $Folder->read(true, true, true);
+		$files = (new \Cake\Filesystem\Folder($this->tmpPath . $this->coreFolder))->read(true, true, true);
 		foreach($files[1] as $file) {
-			copy($file, $this->tmpPath . $this->coreFolder . DS . basename($file));
+			if(!preg_match('/\.php$/', $file)) continue;
+			rename($file, $this->tmpPath . basename($file));
 		}
-		foreach($this->_defaultPlugins as $plugin) {
-			$path = BASER_PLUGINS . $plugin . DS . 'Config' . DS . 'schema' . DS;
-			$Folder = new \Cake\Filesystem\Folder($path);
-			$files = $Folder->read(true, true, true);
-			foreach($files[1] as $file) {
-				copy($file, $this->tmpPath . 'plugin' . DS . basename($file));
-			}
+		$files = (new \Cake\Filesystem\Folder($this->tmpPath . 'plugin'))->read(true, true, true);
+		foreach($files[1] as $file) {
+			if(!preg_match('/\.php$/', $file)) continue;
+			rename($file, $this->tmpPath . basename($file));
 		}
+		
+        /* @var BcDatabaseService $dbService */
+        $dbService = $this->getService(BcDatabaseServiceInterface::class);
+        /* @var \Cake\Database\Connection $db */
+        $db = ConnectionManager::get($this->newDbConfigKeyName);
+        $tables = $db->getSchemaCollection()->listTables();
+        foreach($tables as $table) {
+            if (preg_match('/^' . $this->newDbPrefix . '/', $table)) continue;
+            if (preg_match('/^' . $this->oldDbPrefix . '/', $table)) continue;
+            if (preg_match('/phinxlog$/', $table)) continue;
+            if (!$dbService->writeSchema($table, [
+                'path' => $this->tmpPath
+            ])) {
+                return false;
+            }
+        }
+        return true;
 	}
 	
 	/**
