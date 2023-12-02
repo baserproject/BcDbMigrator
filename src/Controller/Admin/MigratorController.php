@@ -3,6 +3,7 @@
 namespace BcDbMigrator\Controller\Admin;
 
 use BaserCore\Utility\BcUtil;
+use BaserCore\Utility\BcZip;
 
 /**
  * MigrationController
@@ -75,10 +76,18 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 			$this->notFound();
 		}
 		// ZIP圧縮
-		$Simplezip = new Simplezip();
-		$Simplezip->addFolder($this->_tmpPath);
+        $distPath = TMP . 'baserbackup_' . BcUtil::getVersion() . '_' . date('Ymd_His') . '.zip';
+
+        $bcZip = new BcZip();
+        $bcZip->create($this->_tmpPath, $distPath);
+        header("Cache-Control: no-store");
+        header("Content-Type: application/zip");
+        header("Content-Disposition: attachment; filename=" . basename($distPath) . ";");
+        header("Content-Length: " . filesize($distPath));
+        while (ob_get_level()) { ob_end_clean(); }
+        echo readfile($distPath);
+		
 		// ダウンロード
-		$Simplezip->download($fileName);
 		$Folder = new \Cake\Filesystem\Folder();
 		$Folder->delete($this->_tmpPath);
 		$this->getRequest()->getSession()->write('BcDbMigrator.downloaded', true);

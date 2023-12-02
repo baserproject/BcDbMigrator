@@ -11,6 +11,7 @@ use Cake\Datasource\ConnectionManager;
 use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
 use Cake\Utility\Inflector;
+use Cake\Core\Configure;
 
 /**
  * include files
@@ -158,11 +159,36 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		/* @var ConnectionInterface $db */
 		$db = ConnectionManager::get($this->oldDbConfigKeyName);
 		$db->execute("SET SESSION sql_mode = ''");
+		$this->backupPhinxlog();
 		$this->_deleteMigrationTables();
 		$this->_createMigrationTables();
 		// バックアップデータの構成を再構築する
 		$this->constructBackupData();
 //		$this->_setDbConfigToAllModels($this->newDbConfigKeyName);
+	}
+	
+	public function backupPhinxlog()
+	{
+		$corePlugins = Configure::read('BcApp.corePlugins');
+		array_unshift($corePlugins, 'BaserCore');
+		foreach($corePlugins as $corePlugin) {
+			$table = Inflector::underscore($corePlugin) . '_phinxlog';
+			if($this->dbService->tableExists($table)) {
+				$this->dbService->renameTable($table, $table . '_bak');		
+			}
+		}
+	}
+	
+	public function restorePhinxlog()
+	{
+		$corePlugins = Configure::read('BcApp.corePlugins');
+		array_unshift($corePlugins, 'BaserCore');
+		foreach($corePlugins as $corePlugin) {
+			$table = Inflector::underscore($corePlugin) . '_phinxlog_bak';
+			if($this->dbService->tableExists($table)) {
+				$this->dbService->renameTable($table, Inflector::underscore($corePlugin) . '_phinxlog');		
+			}
+		}
 	}
 	
 	/**
@@ -172,6 +198,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	{
 		$this->_deleteMigrationTables();
 		$this->_setDbConfigToAllModels('default');
+		$this->restorePhinxlog();
 	}
 	
 	/**
