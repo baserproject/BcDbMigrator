@@ -8,6 +8,7 @@ use BaserCore\Utility\BcContainerTrait;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\ConnectionInterface;
 use Cake\Datasource\ConnectionManager;
+use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
 use Cake\Utility\Inflector;
 
@@ -95,7 +96,18 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	{
 		$this->tableLocator = TableRegistry::getTableLocator();
 		$this->dbService = $this->getService(BcDatabaseServiceInterface::class);
-		$this->_defaultPlugins = \Cake\Core\Configure::read('BcApp.corePlugins');
+		$this->_defaultPlugins = [
+            'BcBlog',
+            'BcContentLink',
+            'BcEditorTemplate',
+            'BcFavorite',
+            'BcMail',
+            'BcSearchIndex',
+            'BcThemeConfig',
+            'BcThemeFile',
+            'BcUploader',
+            'BcWidgetArea',
+        ];
 		$this->_newDb = $this->_createMigrationDb($this->newDbConfigKeyName, $this->newDbPrefix);
 		$this->_oldDb = $this->_createMigrationDb($this->oldDbConfigKeyName, $this->oldDbPrefix);
 		ini_set('memory_limit', '-1');
@@ -148,6 +160,8 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$db->execute("SET SESSION sql_mode = ''");
 		$this->_deleteMigrationTables();
 		$this->_createMigrationTables();
+		// バックアップデータの構成を再構築する
+		$this->constructBackupData();
 //		$this->_setDbConfigToAllModels($this->newDbConfigKeyName);
 	}
 	
@@ -357,34 +371,22 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	/**
 	 * CSVを配列として読み込む
 	 *
-	 * @param bool $isPlugin プラグインかどうか
 	 * @param string $table テーブル名
 	 * @return mixed
 	 */
-	public function readCsv($isPlugin, $table)
+	public function readCsv($table)
 	{
-		if (!$isPlugin) {
-			$type = $this->coreFolder;
-		} else {
-			$type = 'plugin';
-		}
-		return $this->dbService->loadCsvToArray($this->tmpPath . $type . DS . $table . '.csv', $this->encoding);
+		return $this->dbService->loadCsvToArray($this->tmpPath . $table . '.csv', $this->encoding);
 	}
 	
 	/**
 	 * スキーマファイルを削除する
 	 *
-	 * @param bool $isPlugin
 	 * @param string $table
 	 */
-	public function deleteSchema($isPlugin, $table)
+	public function deleteSchema($table)
 	{
-		if (!$isPlugin) {
-			$type = $this->coreFolder;
-		} else {
-			$type = 'plugin';
-		}
-		$path = $this->tmpPath . $type . DS . $table . 'Schema.php';
+		$path = $this->tmpPath . $table . 'Schema.php';
 		if (file_exists($path)) {
 			unlink($path);
 		}
@@ -392,18 +394,10 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	
 	/**
 	 * データファイルを削除する
-	 *
-	 * @param bool $isPlugin
-	 * @param string $table
 	 */
-	public function deleteCsv($isPlugin, $table)
+	public function deleteCsv($table)
 	{
-		if (!$isPlugin) {
-			$type = $this->coreFolder;
-		} else {
-			$type = 'plugin';
-		}
-		unlink($this->tmpPath . $type . DS . $table . '.csv');
+		unlink($this->tmpPath . $table . '.csv');
 	}
 	
 	/**
@@ -411,17 +405,6 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function writeNewSchema()
 	{
-		$files = (new \Cake\Filesystem\Folder($this->tmpPath . $this->coreFolder))->read(true, true, true);
-		foreach($files[1] as $file) {
-			if(!preg_match('/\.php$/', $file)) continue;
-			rename($file, $this->tmpPath . basename($file));
-		}
-		$files = (new \Cake\Filesystem\Folder($this->tmpPath . 'plugin'))->read(true, true, true);
-		foreach($files[1] as $file) {
-			if(!preg_match('/\.php$/', $file)) continue;
-			rename($file, $this->tmpPath . basename($file));
-		}
-		
         /* @var BcDatabaseService $dbService */
         $dbService = $this->getService(BcDatabaseServiceInterface::class);
         /* @var \Cake\Database\Connection $db */
@@ -441,27 +424,42 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	}
 	
 	/**
+	 * バックアップデータの構成を再構築する
+	 * @return void
+	 */
+	public function constructBackupData()
+	{
+		$folder = new Folder($this->tmpPath . $this->coreFolder);
+		$files = $folder->read(true, true, true);
+		foreach($files[1] as $file) {
+			rename($file, $this->tmpPath . basename($file));
+		}
+		$folder->delete();
+		
+		$folder = new Folder($this->tmpPath . 'plugin');
+		$files = $folder->read(true, true, true);
+		foreach($files[1] as $file) {
+			rename($file, $this->tmpPath . basename($file));
+		}
+		$folder->delete();
+	}
+	
+	/**
 	 * マイグレーションテーブルよりCSVを書き出す
-	 *
 	 * @param string $table
 	 */
-	public function writeCsv($isPlugin, $table)
+	public function writeCsv($table)
 	{
-		if (!$isPlugin) {
-			$type = $this->coreFolder;
-		} else {
-			$type = 'plugin';
-		}
+		$this->tableLocator->remove('BaserCore.App');
+		$this->tableLocator->get('BaserCore.App');
 		// CSVを書き出す
-		$this->_newDb->writeCsv(
-			[
-				'path' => $this->tmpPath . $type . DS . $table . '.csv',
-				'encoding' => 'UTF-8',
-				'table' => $table,
-				'init' => false,
-				'plugin' => null
-			]
-		);
+		// BcDatabaseService::writeCsv() が、別のDB接続に対応していないため
+	 	// プレフィックス付で書き出しで指定している
+		$this->dbService->writeCsv($this->newDbPrefix . $table, [
+			'path' => $this->tmpPath . $table . '.csv',
+			'encoding' => 'UTF-8',
+			'init' => false,
+		]);
 	}
 	
 }

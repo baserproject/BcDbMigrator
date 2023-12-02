@@ -37,9 +37,13 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 				$version = str_replace(' ', '_', BcUtil::getVersion());
 				$this->getRequest()->getSession()->write('BcDbMigrator.file', 'baserbackup_' . $version . '_' . date('Ymd_His'));
 				$this->BcMessage->setInfo('バックアップデータのマイグレーションが完了しました。ダウンロードボタンよりダウンロードしてください。');
+				$password = $this->{$this->migrator}->getNewPassword();
+				if($password) {
+					$this->BcMessage->setInfo('残念ながらパスワードの移行はできません。すべてのユーザーのパスワードは、「' . $password . '」にセットされています。ログイン後のパスワードの変更をお願いします。');
+				}
 				$this->redirect(['action' => 'index']);
 			} else {
-				$this->BcMessage->setWarning('バックアップデータのマイグレーションが失敗しました。バックアップデータに問題があります。ログファイルを確認してください。');
+				$this->BcMessage->setError('バックアップデータのマイグレーションが失敗しました。バックアップデータに問題があります。ログファイルを確認してください。');
 				$this->redirect(['action' => 'index']);
 			}
 		}
