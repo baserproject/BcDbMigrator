@@ -1,4 +1,13 @@
 <?php
+/**
+ * baserCMS :  Based Website Development Project <https://basercms.net>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
+ *
+ * @copyright     Copyright (c) NPO baser foundation
+ * @link          https://basercms.net baserCMS Project
+ * @since         5.0.7
+ * @license       https://basercms.net/license/index.html MIT License
+ */
 
 namespace BcDbMigrator\Controller\Admin;
 
@@ -39,7 +48,7 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 				$this->getRequest()->getSession()->write('BcDbMigrator.file', 'baserbackup_' . $version . '_' . date('Ymd_His'));
 				$this->BcMessage->setInfo('バックアップデータのマイグレーションが完了しました。ダウンロードボタンよりダウンロードしてください。');
 				$password = $this->{$this->migrator}->getNewPassword();
-				if($password) {
+				if ($password) {
 					$this->BcMessage->setInfo('残念ながらパスワードの移行はできません。すべてのユーザーのパスワードは、「' . $password . '」にセットされています。ログイン後のパスワードの変更をお願いします。');
 				}
 				$this->redirect(['action' => 'index']);
@@ -76,16 +85,18 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 			$this->notFound();
 		}
 		// ZIP圧縮
-        $distPath = TMP . 'baserbackup_' . BcUtil::getVersion() . '_' . date('Ymd_His') . '.zip';
-
-        $bcZip = new BcZip();
-        $bcZip->create($this->_tmpPath, $distPath);
-        header("Cache-Control: no-store");
-        header("Content-Type: application/zip");
-        header("Content-Disposition: attachment; filename=" . basename($distPath) . ";");
-        header("Content-Length: " . filesize($distPath));
-        while (ob_get_level()) { ob_end_clean(); }
-        echo readfile($distPath);
+		$distPath = TMP . 'baserbackup_' . BcUtil::getVersion() . '_' . date('Ymd_His') . '.zip';
+		
+		$bcZip = new BcZip();
+		$bcZip->create($this->_tmpPath, $distPath);
+		header("Cache-Control: no-store");
+		header("Content-Type: application/zip");
+		header("Content-Disposition: attachment; filename=" . basename($distPath) . ";");
+		header("Content-Length: " . filesize($distPath));
+		while(ob_get_level()) {
+			ob_end_clean();
+		}
+		echo readfile($distPath);
 		
 		// ダウンロード
 		$Folder = new \Cake\Filesystem\Folder();

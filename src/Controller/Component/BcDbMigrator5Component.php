@@ -1,4 +1,13 @@
 <?php
+/**
+ * baserCMS :  Based Website Development Project <https://basercms.net>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
+ *
+ * @copyright     Copyright (c) NPO baser foundation
+ * @link          https://basercms.net baserCMS Project
+ * @since         5.0.7
+ * @license       https://basercms.net/license/index.html MIT License
+ */
 
 namespace BcDbMigrator\Controller\Component;
 
@@ -30,13 +39,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	
 	/**
 	 * サイトIDマッピング
-	 * @var array 
+	 * @var array
 	 */
 	private $_siteIdMap = [];
 	
 	/**
 	 * 新しいパスワード
-	 * @var string 
+	 * @var string
 	 */
 	private $newPassword = '';
 	
@@ -48,7 +57,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	{
 		return $this->newPassword;
 	}
-
+	
 	/**
 	 * メッセージを取得する
 	 *
@@ -97,9 +106,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		// メール設定
 		if (!$this->_updateMailConfig()) $result = false;
 		// アクセスルールグループ
-		if(!$this->_updatePermissionGroups()) $result = false;
+		if (!$this->_updatePermissionGroups()) $result = false;
 		// アクセスルール
-		if(!$this->_updatePermissions()) $result = false;
+		if (!$this->_updatePermissions()) $result = false;
 		// プラグイン
 		if (!$this->_updatePlugin()) $result = false;
 		// サイト設定
@@ -145,7 +154,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->writeCsv('user_groups');
 		$this->writeCsv('users');
 		$this->writeCsv('users_user_groups');
-		if(file_exists($this->tmpPath . 'search_indices.csv')) {
+		if (file_exists($this->tmpPath . 'search_indices.csv')) {
 			rename($this->tmpPath . 'search_indices.csv', $this->tmpPath . 'search_indexes.csv');
 		}
 	}
@@ -180,11 +189,11 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$siteConfigs = $this->readCsv('site_configs');
 		$title = $keyword = $description = $theme = $formalName = '';
 		foreach($siteConfigs as $siteConfig) {
-			if($siteConfig['name'] === 'name') $title = $siteConfig['value'];
-			if($siteConfig['name'] === 'keyword') $keyword = $siteConfig['value'];
-			if($siteConfig['name'] === 'description') $description = $siteConfig['value'];
-			if($siteConfig['name'] === 'theme') $theme = $siteConfig['value'];
-			if($siteConfig['name'] === 'formal_name') $formalName = $siteConfig['value'];
+			if ($siteConfig['name'] === 'name') $title = $siteConfig['value'];
+			if ($siteConfig['name'] === 'keyword') $keyword = $siteConfig['value'];
+			if ($siteConfig['name'] === 'description') $description = $siteConfig['value'];
+			if ($siteConfig['name'] === 'theme') $theme = $siteConfig['value'];
+			if ($siteConfig['name'] === 'formal_name') $formalName = $siteConfig['value'];
 		}
 		$data = [
 			'id' => 1,
@@ -204,7 +213,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		
 		$sites = $this->readCsv('sites');
 		foreach($sites as $site) {
-			$siteId = (int) $site['id'] + 1;
+			$siteId = (int)$site['id'] + 1;
 			$siteId = $siteId + 1;
 			$this->_siteIdMap[$site['id']] = $siteId;
 			$site['id'] = $siteId;
@@ -212,10 +221,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			try {
 				$site = $sitesTable->newEntity($site);
 				$sitesTable->save($site);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -238,7 +247,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$record['site_id'] = $this->getSiteId($record['site_id']);
 			unset($record['deleted']);
 			
-			if(BcUtil::verpoint(BcUtil::getVersion()) <= BcUtil::verpoint('5.0.7')) {
+			if (BcUtil::verpoint(BcUtil::getVersion()) <= BcUtil::verpoint('5.0.7')) {
 				if (!empty($record['self_publish_begin'])) $record['self_publish_end'] = new FrozenTime($record['self_publish_begin']);
 				if (!empty($record['self_publish_end'])) $record['self_publish_end'] = new FrozenTime($record['self_publish_end']);
 				if (!empty($record['created_date'])) $record['created_date'] = new FrozenTime($record['created_date']);
@@ -248,10 +257,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			try {
 				$entity = $table->newEntity($record);
 				$table->save($entity);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -265,9 +274,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 * @param $src
 	 * @return int|mixed
 	 */
-	private function getSiteId($src) {
-		if(!$src) return 1;
-		if(isset($this->_siteIdMap[$src])) {
+	private function getSiteId($src)
+	{
+		if (!$src) return 1;
+		if (isset($this->_siteIdMap[$src])) {
 			return $this->_siteIdMap[$src];
 		}
 		return 1;
@@ -287,12 +297,12 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$corePluginNames = \Cake\Core\Configure::read('BcApp.corePlugins');
 		$corePlugins = [];
 		foreach($corePluginNames as $key => $corePluginName) {
-			if($corePluginName === 'BcCustomContent') continue;
-			if(in_array(preg_replace('/^Bc/', '', $corePluginName), $targetPluginNames)) continue;
+			if ($corePluginName === 'BcCustomContent') continue;
+			if (in_array(preg_replace('/^Bc/', '', $corePluginName), $targetPluginNames)) continue;
 			$plugin = $table->getPluginConfig($corePluginName);
 			$corePlugins[] = [
 				'name' => $corePluginName,
-				'title' => $plugin ? $plugin->title : $corePluginName,
+				'title' => $plugin? $plugin->title : $corePluginName,
 				'db_inited' => true
 			];
 		}
@@ -300,8 +310,8 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		
 		$oldCorePlugins = ['Blog', 'Mail', 'Feed', 'Uploader'];
 		foreach($records as $record) {
-			if($record['name'] === 'Feed') continue;
-			if(in_array($record['name'], $oldCorePlugins)) {
+			if ($record['name'] === 'Feed') continue;
+			if (in_array($record['name'], $oldCorePlugins)) {
 				$record['name'] = 'Bc' . $record['name'];
 			}
 			if (in_array($record['name'], $corePluginNames)) {
@@ -314,10 +324,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			try {
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -341,10 +351,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			try {
 				$entity = $table->newEntity($record);
 				$table->saveOrFail($entity);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -364,7 +374,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$result = true;
 		foreach($userGroups as $userGroup) {
 			$authPrefixSettings = '';
-			if($userGroup['id'] !== '1') {
+			if ($userGroup['id'] !== '1') {
 				$authPrefixSettings = '{"Admin":{"type":"2"},"Api/Admin":{"type":"2"}}';
 			}
 			$authPrefixArray = explode(',', $userGroup['auth_prefix']);
@@ -379,11 +389,11 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			
 			try {
 				$entity = $userGroupsTable->newEntity($data);
-				$userGroupsTable->save($entity);	
-			} catch(PersistenceException $e) {
+				$userGroupsTable->save($entity);
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -405,10 +415,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			try {
 				$entity = $table->newEntity($record);
 				$table->saveOrFail($entity);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -463,25 +473,25 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		BcUtil::offEvent($table->getEventManager(), 'Model.afterMarshal');
 		$records = $this->readCsv('blog_posts');
 		foreach($records as $record) {
-			if(BcUtil::verpoint(BcUtil::getVersion()) > BcUtil::verpoint('5.0.7')) {
+			if (BcUtil::verpoint(BcUtil::getVersion()) > BcUtil::verpoint('5.0.7')) {
 				$record['posted'] = $record['posts_date'];
 			} else {
 				if (!empty($record['posts_date'])) $record['posted'] = new FrozenTime($record['posts_date']);
 				if (!empty($record['publish_begin'])) $record['publish_begin'] = new FrozenTime($record['publish_begin']);
 				if (!empty($record['publish_end'])) $record['publish_end'] = new FrozenTime($record['publish_end']);
 			}
-			if(!$record['content']) $record['content'] = '';
-			if(!$record['detail_draft']) $record['detail_draft'] = '';
+			if (!$record['content']) $record['content'] = '';
+			if (!$record['detail_draft']) $record['detail_draft'] = '';
 			$record['title'] = $record['name'];
 			unset($record['name'], $record['posts_date']);
 			
 			try {
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -504,10 +514,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			try {
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -527,10 +537,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$records = $this->readCsv('mail_configs');
 		$record = [];
 		foreach($records[0] as $key => $value) {
-			if(in_array($key, ['id', 'modified', 'created'])) continue;
-			$record[$key] = $value?? '';
+			if (in_array($key, ['id', 'modified', 'created'])) continue;
+			$record[$key] = $value ?? '';
 		}
-		if(!$table->saveKeyValue($record)) {
+		if (!$table->saveKeyValue($record)) {
 			$this->log('mail_configs のデータを保存できませんでした。');
 			return false;
 		}
@@ -558,7 +568,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$table = $this->tableLocator->get('BaserCore.Permissions', ['connectionName' => $this->newDbConfigKeyName]);
 		$records = $this->readCsv('permissions');
 		foreach($records as $record) {
-			if($record['url'] === '/admin/*') continue;
+			if ($record['url'] === '/admin/*') continue;
 			$record['permission_group_id'] = 1;
 			$record['method'] = '*';
 			$record['url'] = preg_replace('/^\/admin\/favorites\//', '/baser/admin/bc-favorite/favorites/', $record['url']);
@@ -587,10 +597,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			try {
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -615,15 +625,15 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		foreach($records as $record) {
 			$record['status'] = true;
 			$record['user_groups']['_ids'] = [$record['user_group_id']];
-			$this->newPassword = $record['password'] = Security::randomString(10); 
+			$this->newPassword = $record['password'] = Security::randomString(10);
 			unset($record['user_group_id']);
 			try {
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record, ['validate' => false]);
 				$table->saveOrFail($entity);
-			} catch(PersistenceException $e) {
+			} catch (PersistenceException $e) {
 				$this->log($e->getEntity()->getMessage());
 				return false;
-			} catch(\Throwable $e) {
+			} catch (\Throwable $e) {
 				$this->log($e->getMessage());
 				return false;
 			}
@@ -646,41 +656,41 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		foreach($records as $record) {
 			$record['text_rows'] = $record['rows'];
 			unset($record['rows']);
-			if($record['valid'] === 'VALID_NOT_EMPTY') $record['valid'] = 1;
-			if($record['valid'] === 'VALID_EMAIL') {
+			if ($record['valid'] === 'VALID_NOT_EMPTY') $record['valid'] = 1;
+			if ($record['valid'] === 'VALID_EMAIL') {
 				$record['valid'] = 1;
-				if(!empty($record['valid_ex'])) $record['valid_ex'] .= ',';
+				if (!empty($record['valid_ex'])) $record['valid_ex'] .= ',';
 				$record['valid_ex'] .= 'VALID_EMAIL';
 			}
-			if($record['valid'] === '/^(|[0-9]+)$/') {
+			if ($record['valid'] === '/^(|[0-9]+)$/') {
 				unset($record['valid']);
-				if(!empty($record['valid_ex'])) $record['valid_ex'] .= ',';
+				if (!empty($record['valid_ex'])) $record['valid_ex'] .= ',';
 				$record['valid_ex'] .= 'VALID_NUMBER';
 			}
-			if($record['valid'] === '/^([0-9]+)$/') {
+			if ($record['valid'] === '/^([0-9]+)$/') {
 				$record['valid'] = 1;
-				if(!empty($record['valid_ex'])) $record['valid_ex'] .= ',';
+				if (!empty($record['valid_ex'])) $record['valid_ex'] .= ',';
 				$record['valid_ex'] = 'VALID_NUMBER';
 			}
-			if($record['valid'] === '/^(|[0-9\-]+)$/') {
+			if ($record['valid'] === '/^(|[0-9\-]+)$/') {
 				unset($record['valid']);
-				if(!empty($record['options'])) $record['options'] .= '|';
+				if (!empty($record['options'])) $record['options'] .= '|';
 				$record['options'] .= 'regex|^(|[0-9\-]+)$';
 			}
-			if($record['valid'] === '/^([0-9\-]+)$/') {
+			if ($record['valid'] === '/^([0-9\-]+)$/') {
 				$record['valid'] = 1;
-				if(!empty($record['options'])) $record['options'] .= '|';
+				if (!empty($record['options'])) $record['options'] .= '|';
 				$record['options'] .= 'regex|^([0-9\-]+)$';
 			}
 			$validEx = explode(',', $record['valid_ex']);
-			if(in_array('VALID_NOT_UNCHECKED', $validEx)) {
+			if (in_array('VALID_NOT_UNCHECKED', $validEx)) {
 				$record['valid'] = 1;
 				$key = array_search('VALID_NOT_UNCHECKED', $validEx);
-				if($key !== false) unset($validEx[$key]);
+				if ($key !== false) unset($validEx[$key]);
 				$record['valid_ex'] = implode(',', $validEx);
 			}
 			foreach($record as $key => $value) {
-				if(is_null($value)) $record[$key] = '';
+				if (is_null($value)) $record[$key] = '';
 			}
 			try {
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);

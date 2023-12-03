@@ -1,13 +1,24 @@
 <?php
+/**
+ * baserCMS :  Based Website Development Project <https://basercms.net>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
+ *
+ * @copyright     Copyright (c) NPO baser foundation
+ * @link          https://basercms.net baserCMS Project
+ * @since         5.0.7
+ * @license       https://basercms.net/license/index.html MIT License
+ */
 
 namespace BcDbMigrator\Controller\Component;
 
 use BaserCore\Service\BcDatabaseService;
 use BaserCore\Service\BcDatabaseServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcUtil;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\ConnectionInterface;
 use Cake\Datasource\ConnectionManager;
+use Cake\Filesystem\File;
 use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
 use Cake\Utility\Inflector;
@@ -36,7 +47,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	
 	/**
 	 * TableLocator
-	 * @var 
+	 * @var
 	 */
 	protected $tableLocator;
 	
@@ -59,6 +70,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 * @var ConnectionInterface
 	 */
 	protected $_newDb;
+	
 	/**
 	 * 旧DBソース
 	 * @var ConnectionInterface
@@ -86,6 +98,10 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	public $newDbConfigKeyName = 'bcNewDbMigrator';
 	public $oldDbConfigKeyName = 'bcOldDbMigrator';
 	
+	/**
+	 * バックアップファイルにおけるコアのフォルダ名
+	 * @var string 
+	 */
 	public $coreFolder = 'core';
 	
 	/**
@@ -98,17 +114,17 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$this->tableLocator = TableRegistry::getTableLocator();
 		$this->dbService = $this->getService(BcDatabaseServiceInterface::class);
 		$this->_defaultPlugins = [
-            'BcBlog',
-            'BcContentLink',
-            'BcEditorTemplate',
-            'BcFavorite',
-            'BcMail',
-            'BcSearchIndex',
-            'BcThemeConfig',
-            'BcThemeFile',
-            'BcUploader',
-            'BcWidgetArea',
-        ];
+			'BcBlog',
+			'BcContentLink',
+			'BcEditorTemplate',
+			'BcFavorite',
+			'BcMail',
+			'BcSearchIndex',
+			'BcThemeConfig',
+			'BcThemeFile',
+			'BcUploader',
+			'BcWidgetArea',
+		];
 		$this->_newDb = $this->_createMigrationDb($this->newDbConfigKeyName, $this->newDbPrefix);
 		$this->_oldDb = $this->_createMigrationDb($this->oldDbConfigKeyName, $this->oldDbPrefix);
 		ini_set('memory_limit', '-1');
@@ -164,29 +180,37 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$this->_createMigrationTables();
 		// バックアップデータの構成を再構築する
 		$this->constructBackupData();
-//		$this->_setDbConfigToAllModels($this->newDbConfigKeyName);
+		$this->_setDbConfigToAllModels($this->newDbConfigKeyName);
 	}
 	
+	/**
+	 * phinxlogをバックアップする
+	 * @return void
+	 */
 	public function backupPhinxlog()
 	{
 		$corePlugins = Configure::read('BcApp.corePlugins');
 		array_unshift($corePlugins, 'BaserCore');
 		foreach($corePlugins as $corePlugin) {
 			$table = Inflector::underscore($corePlugin) . '_phinxlog';
-			if($this->dbService->tableExists($table)) {
-				$this->dbService->renameTable($table, $table . '_bak');		
+			if ($this->dbService->tableExists($table)) {
+				$this->dbService->renameTable($table, 'bak__' . $table);
 			}
 		}
 	}
 	
+	/**
+	 * phinxlogを復元する
+	 * @return void
+	 */
 	public function restorePhinxlog()
 	{
 		$corePlugins = Configure::read('BcApp.corePlugins');
 		array_unshift($corePlugins, 'BaserCore');
 		foreach($corePlugins as $corePlugin) {
-			$table = Inflector::underscore($corePlugin) . '_phinxlog_bak';
-			if($this->dbService->tableExists($table)) {
-				$this->dbService->renameTable($table, Inflector::underscore($corePlugin) . '_phinxlog');		
+			$table = 'bak__' . Inflector::underscore($corePlugin);
+			if ($this->dbService->tableExists($table)) {
+				$this->dbService->renameTable($table, Inflector::underscore($corePlugin) . '_phinxlog');
 			}
 		}
 	}
@@ -216,7 +240,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 			$pluginClass->install(['connection' => $this->newDbConfigKeyName]);
 		}
 		
-		\BaserCore\Utility\BcUtil::clearAllCache();
+		BcUtil::clearAllCache();
 		TableRegistry::getTableLocator()->clear();
 		
 		// 古いバージョンのテーブル
@@ -225,7 +249,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$this->_loadCsv($this->_oldDb, $this->tmpPath . $this->coreFolder);
 		$this->_loadCsv($this->_oldDb, $this->tmpPath . 'plugin');
 		
-		\BaserCore\Utility\BcUtil::clearAllCache();
+		BcUtil::clearAllCache();
 		TableRegistry::getTableLocator()->clear();
 	}
 	
@@ -242,14 +266,14 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$appTable = TableRegistry::getTableLocator()->get('BaserCore.App');
 		$currentDb = $appTable->getConnection();
 		$appTable->setConnection($db);
-		$Folder = new \Cake\Filesystem\Folder($path);
+		$Folder = new Folder($path);
 		$prefix = $db->config()['prefix'];
 		$files = $Folder->read(true, true, true);
 		if (!empty($files[1])) {
 			foreach($files[1] as $file) {
 				if (preg_match('/\.php$/', $file)) {
 					$tableName = basename($file, '.php');
-					$File = new \Cake\Filesystem\File($file);
+					$File = new File($file);
 					$contents = $File->read();
 					$contents = preg_replace('/class (.+?)Schema/', 'class ${1}OldSchema', $contents);
 					$contents = preg_replace('/extends CakeSchema/', 'extends \BaserCore\Database\Schema\BcSchema', $contents);
@@ -273,7 +297,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 						'prefix' => $prefix
 					]);
 					rename($old, $new);
-					$File = new \Cake\Filesystem\File($new);
+					$File = new File($new);
 					$contents = $File->read();
 					$contents = preg_replace('/class (.+?)OldSchema/', 'class ${1}Schema', $contents);
 					$File->write($contents);
@@ -294,7 +318,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	protected function _loadCsv($db, $path)
 	{
-		$Folder = new \Cake\Filesystem\Folder($path);
+		$Folder = new Folder($path);
 		$files = $Folder->read(true, true, true);
 		if (!empty($files[1])) {
 			foreach($files[1] as $file) {
@@ -318,7 +342,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	protected function _createMigrationDb($dbConfigKeyName, $prefix): ConnectionInterface
 	{
-		$dbConfig = \Cake\Datasource\ConnectionManager::getConfig('default');
+		$dbConfig = ConnectionManager::getConfig('default');
 		$dbConfig['prefix'] = $prefix;
 		ConnectionManager::setConfig($dbConfigKeyName, $dbConfig);
 		return ConnectionManager::get($dbConfigKeyName);
@@ -332,10 +356,11 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	protected function _setDbConfigToAllModels($dbConfigKeyName)
 	{
 		TableRegistry::getTableLocator()->clear();
+		TableRegistry::getTableLocator()->get('BaserCore.App', ['connectionName' => $dbConfigKeyName]);
 		$this->_setDbConfigToModels('BaserCore', $this->getTables('BaserCore'), $dbConfigKeyName);
 		$collection = CakePlugin::getCollection();
 		foreach($this->_defaultPlugins as $plugin) {
-			if($collection->get($plugin)) {
+			if ($collection->get($plugin)) {
 				$this->_setDbConfigToModels($plugin, $this->getTables($plugin), $dbConfigKeyName);
 			}
 		}
@@ -348,7 +373,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	private function getTables(string $plugin): array
 	{
-		$Folder = new \Cake\Filesystem\Folder(\Cake\Core\Plugin::path($plugin) . 'src' . DS . 'Model' . DS . 'Table');
+		$Folder = new Folder(CakePlugin::path($plugin) . 'src' . DS . 'Model' . DS . 'Table');
 		$files = $Folder->read(true, true, true);
 		$tables = [];
 		foreach($files[1] as $file) {
@@ -378,7 +403,10 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 					$model = $plugin . '.' . preg_replace('/Table$/', '', $model);
 				}
 				try {
-					\Cake\ORM\TableRegistry::getTableLocator()->get($model, ['connectionName' => $dbConfigKeyName]);
+					if(TableRegistry::getTableLocator()->exists($model)) {
+						TableRegistry::getTableLocator()->remove($model);
+					}
+					TableRegistry::getTableLocator()->get($model, ['connectionName' => $dbConfigKeyName]);
 				} catch (\Exception $e) {
 				}
 			}
@@ -432,22 +460,22 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function writeNewSchema()
 	{
-        /* @var BcDatabaseService $dbService */
-        $dbService = $this->getService(BcDatabaseServiceInterface::class);
-        /* @var \Cake\Database\Connection $db */
-        $db = ConnectionManager::get($this->newDbConfigKeyName);
-        $tables = $db->getSchemaCollection()->listTables();
-        foreach($tables as $table) {
-            if (preg_match('/^' . $this->newDbPrefix . '/', $table)) continue;
-            if (preg_match('/^' . $this->oldDbPrefix . '/', $table)) continue;
-            if (preg_match('/phinxlog$/', $table)) continue;
-            if (!$dbService->writeSchema($table, [
-                'path' => $this->tmpPath
-            ])) {
-                return false;
-            }
-        }
-        return true;
+		/* @var BcDatabaseService $dbService */
+		$dbService = $this->getService(BcDatabaseServiceInterface::class);
+		/* @var \Cake\Database\Connection $db */
+		$db = ConnectionManager::get($this->newDbConfigKeyName);
+		$tables = $db->getSchemaCollection()->listTables();
+		foreach($tables as $table) {
+			if (preg_match('/^' . $this->newDbPrefix . '/', $table)) continue;
+			if (preg_match('/^' . $this->oldDbPrefix . '/', $table)) continue;
+			if (preg_match('/phinxlog$/', $table)) continue;
+			if (!$dbService->writeSchema($table, [
+				'path' => $this->tmpPath
+			])) {
+				return false;
+			}
+		}
+		return true;
 	}
 	
 	/**
@@ -481,7 +509,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$this->tableLocator->get('BaserCore.App');
 		// CSVを書き出す
 		// BcDatabaseService::writeCsv() が、別のDB接続に対応していないため
-	 	// プレフィックス付で書き出しで指定している
+		// プレフィックス付で書き出しで指定している
 		$this->dbService->writeCsv($this->newDbPrefix . $table, [
 			'path' => $this->tmpPath . $table . '.csv',
 			'encoding' => 'UTF-8',
