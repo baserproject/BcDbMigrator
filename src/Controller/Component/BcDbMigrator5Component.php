@@ -194,14 +194,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			if ($siteConfig['name'] === 'name') $title = $siteConfig['value'];
 			if ($siteConfig['name'] === 'keyword') $keyword = $siteConfig['value'];
 			if ($siteConfig['name'] === 'description') $description = $siteConfig['value'];
-			if ($siteConfig['name'] === 'theme') $theme = $siteConfig['value'];
 			if ($siteConfig['name'] === 'formal_name') $formalName = $siteConfig['value'];
 		}
 		$data = [
 			'id' => 1,
 			'display_name' => $formalName,
 			'title' => $title,
-			'theme' => $theme,
+			'theme' => Configure::read('BcApp.defaultFrontTheme'),
 			'status' => true,
 			'keyword' => $keyword,
 			'description' => $description,
