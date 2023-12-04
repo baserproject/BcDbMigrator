@@ -18,6 +18,7 @@ use Cake\I18n\FrozenTime;
 use Cake\Utility\Security;
 use CakephpFixtureFactories\Error\PersistenceException;
 use Cake\Core\Configure;
+use Psr\Log\LogLevel;
 
 /**
  * include files
@@ -133,6 +134,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->deleteCsv('feed_configs');
 		$this->deleteCsv('feed_details');
 		$this->deleteCsv('mail_messages');
+		$this->deleteCsv('dblogs');
 	}
 	
 	/**
@@ -204,12 +206,19 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			'keyword' => $keyword,
 			'description' => $description,
 		];
-		$sitesTable = $this->tableLocator->get('BaserCore.Sites', ['connectionName' => $this->newDbConfigKeyName]);
+		$sitesTable = $this->tableLocator->get('BaserCore.Sites');
 		$site = $sitesTable->newEntity($data, ['validate' => false]);
 		
 		$eventListeners = BcUtil::offEvent($sitesTable->getEventManager(), 'Model.afterSave');
-		$sitesTable->save($site);
-		BcUtil::onEvent($sitesTable->getEventManager(), 'Model.afterSave', $eventListeners);
+		try {
+			$sitesTable->saveOrFail($site);
+		} catch (PersistenceException $e) {
+			$this->log($e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
+			return false;
+		} catch (\Throwable $e) {
+			$this->log($e->getMessage(), LogLevel::ERROR, 'migrate_db');
+			return false;
+		}
 		
 		$sites = $this->readCsv('sites');
 		foreach($sites as $site) {
@@ -220,15 +229,16 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$site['theme'] = Configure::read('BcApp.defaultFrontTheme');
 			try {
 				$site = $sitesTable->newEntity($site);
-				$sitesTable->save($site);
+				$sitesTable->saveOrFail($site);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('sites: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('sites: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
+		BcUtil::onEvent($sitesTable->getEventManager(), 'Model.afterSave', $eventListeners);
 		return true;
 	}
 	
@@ -239,14 +249,16 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _updateContent()
 	{
 		$records = $this->readCsv('contents');
-		$this->tableLocator->remove('BaserCore.Contents');
-		$table = $this->tableLocator->get('BaserCore.Contents', ['connectionName' => $this->newDbConfigKeyName]);
+		$table = $this->tableLocator->get('BaserCore.Contents');
 		$table->removeBehavior('Tree');
 		BcUtil::offEvent($table->getEventManager(), 'Model.afterSave');
 		foreach($records as $record) {
 			$record['site_id'] = $this->getSiteId($record['site_id']);
 			unset($record['deleted']);
-			
+			if($record['plugin'] === 'Core') $record['plugin'] = 'BaserCore';
+			if($record['plugin'] === 'Blog') $record['plugin'] = 'BcBlog';
+			if($record['plugin'] === 'Mail') $record['plugin'] = 'BcMail';
+			if($record['plugin'] === 'Uploader') $record['plugin'] = 'BcUploader';
 			if (BcUtil::verpoint(BcUtil::getVersion()) <= BcUtil::verpoint('5.0.7')) {
 				if (!empty($record['self_publish_begin'])) $record['self_publish_end'] = new FrozenTime($record['self_publish_begin']);
 				if (!empty($record['self_publish_end'])) $record['self_publish_end'] = new FrozenTime($record['self_publish_end']);
@@ -255,17 +267,20 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			}
 			
 			try {
-				$entity = $table->newEntity($record);
-				$table->save($entity);
+				if(!$record['parent_id']) {
+					$entity = $table->newEntity($record, ['validate' => false]);
+				} else {
+					$entity = $table->newEntity($record);
+				}
+				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('contents: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('contents: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BaserCore.Contents');
 		return true;
 	}
 	
@@ -288,8 +303,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updatePlugin()
 	{
-		$this->tableLocator->remove('BaserCore.Plugins');
-		$table = $this->tableLocator->get('BaserCore.Plugins', ['connectionName' => $this->newDbConfigKeyName]);
+		$table = $this->tableLocator->get('BaserCore.Plugins');
 		$records = $this->readCsv('plugins');
 		
 		// コアプラグインを追加
@@ -325,14 +339,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('plugins: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('plugins: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BaserCore.Plugins');
 		return true;
 	}
 	
@@ -341,8 +354,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updatePage()
 	{
-		$this->tableLocator->remove('BaserCore.Pages');
-		$table = $this->tableLocator->get('BaserCore.Pages', ['connectionName' => $this->newDbConfigKeyName]);
+		$table = $this->tableLocator->get('BaserCore.Pages');
 		BcUtil::offEvent($table->getEventManager(), 'Model.afterMarshal');
 		$table->searchIndexSaving = false;
 		$records = $this->readCsv('pages');
@@ -352,14 +364,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$entity = $table->newEntity($record);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('pages: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('pages: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BaserCore.Pages');
 		return true;
 	}
 	
@@ -368,8 +379,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updateUserGroup()
 	{
-		$this->tableLocator->remove('BaserCore.UserGroups');
-		$userGroupsTable = $this->tableLocator->get('BaserCore.UserGroups', ['connectionName' => $this->newDbConfigKeyName]);
+		$userGroupsTable = $this->tableLocator->get('BaserCore.UserGroups');
 		$userGroups = $this->readCsv('user_groups');
 		$result = true;
 		foreach($userGroups as $userGroup) {
@@ -389,42 +399,16 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			
 			try {
 				$entity = $userGroupsTable->newEntity($data);
-				$userGroupsTable->save($entity);
+				$userGroupsTable->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('user_groups: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('user_groups: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BaserCore.UserGroups');
 		return $result;
-	}
-	
-	/**
-	 * Update BlogContent
-	 */
-	protected function _updateBlogContent()
-	{
-		$this->tableLocator->remove('BcBlog.BlogContents');
-		$table = $this->tableLocator->get('BcBlog.BlogContents', ['connectionName' => $this->newDbConfigKeyName]);
-		BcUtil::offEvent($table->getEventManager(), 'Model.afterMarshal');
-		$records = $this->readCsv('blog_contents');
-		foreach($records as $record) {
-			try {
-				$entity = $table->newEntity($record);
-				$table->saveOrFail($entity);
-			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
-				return false;
-			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
-				return false;
-			}
-		}
-		$this->tableLocator->remove('BcBlog.BlogContents');
-		return true;
 	}
 	
 	/**
@@ -432,34 +416,35 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updateSiteConfig()
 	{
-		$this->tableLocator->remove('BaserCore.SiteConfigs');
-		$table = $this->tableLocator->get('BaserCore.SiteConfigs', ['connectionName' => $this->oldDbConfigKeyName]);
-		$record = $table->getKeyValue();
-		$this->tableLocator->remove('BaserCore.SiteConfigs');
-		$table = $this->tableLocator->get('BaserCore.SiteConfigs', ['connectionName' => $this->newDbConfigKeyName]);
-		unset(
-			$record['mail_encode'],
-			$record['name'],
-			$record['keyword'],
-			$record['description'],
-			$record['theme'],
-			$record['use_universal_analytics'],
-			$record['category_permission'],
-			$record['main_site_display_name'],
-			$record['formal_name']
-		);
-		$record['version'] = BcUtil::getVersion();
-		$record['use_update_notice'] = true;
-		$record['outer_service_output_header'] = '';
-		$record['outer_service_output_footer'] = '';
-		$record['admin_theme'] = 'BcAdminThird';
-		$record['editor'] = 'BaserCore.BcCkeditor';
+		$records = $this->readCsv('site_configs');
+		$table = $this->tableLocator->get('BaserCore.SiteConfigs');
+		$excludes = [
+			'mail_encode',
+			'name',
+			'keyword',
+			'description',
+			'theme',
+			'use_universal_analytics',
+			'category_permission',
+			'main_site_display_name',
+			'formal_name'
+		];
+		$newRecord = [];
+		foreach($records as $record) {
+			if(in_array($record['name'], $excludes)) continue;
+			$newRecord[$record['name']] = ($record['value'])?? '';
+		}
+		$newRecord['version'] = BcUtil::getVersion();
+		$newRecord['use_update_notice'] = true;
+		$newRecord['outer_service_output_header'] = '';
+		$newRecord['outer_service_output_footer'] = '';
+		$newRecord['admin_theme'] = 'BcAdminThird';
+		$newRecord['editor'] = 'BaserCore.BcCkeditor';
 		
-		if (!$table->saveKeyValue($record)) {
-			$this->log('site_configs のデータを保存できませんでした。');
+		if (!$table->saveKeyValue($newRecord)) {
+			$this->log('site_configs のデータを保存できませんでした。', LogLevel::ERROR, 'migrate_db');
 			return false;
 		}
-		$this->tableLocator->remove('BaserCore.SiteConfigs');
 		return true;
 	}
 	
@@ -468,8 +453,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updateBlogPost()
 	{
-		$this->tableLocator->remove('BcBlog.BlogPosts');
-		$table = $this->tableLocator->get('BcBlog.BlogPosts', ['connectionName' => $this->newDbConfigKeyName]);
+		$table = $this->tableLocator->get('BcBlog.BlogPosts');
 		BcUtil::offEvent($table->getEventManager(), 'Model.afterMarshal');
 		$records = $this->readCsv('blog_posts');
 		foreach($records as $record) {
@@ -485,18 +469,21 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$record['title'] = $record['name'];
 			unset($record['name'], $record['posts_date']);
 			
+			foreach($record as $key => $value) {
+				if (is_null($value)) $record[$key] = '';
+			}
+			
 			try {
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('blog_posts: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('blog_posts: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BcBlog.BlogPosts');
 		return true;
 	}
 	
@@ -506,8 +493,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updateBlogCategory()
 	{
-		$this->tableLocator->remove('BcBlog.BlogCategories');
-		$table = $this->tableLocator->get('BcBlog.BlogCategories', ['connectionName' => $this->newDbConfigKeyName]);
+		$table = $this->tableLocator->get('BcBlog.BlogCategories');
 		$records = $this->readCsv('blog_categories');
 		foreach($records as $record) {
 			unset($record['owner_id']);
@@ -515,14 +501,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('blog_categories: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('blog_categories: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BcBlog.BlogCategories');
 		return true;
 	}
 	
@@ -532,8 +517,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updateMailConfig()
 	{
-		$this->tableLocator->remove('BcMail.MailConfigs');
-		$table = $this->tableLocator->get('BcMail.MailConfigs', ['connectionName' => $this->newDbConfigKeyName]);
+		$table = $this->tableLocator->get('BcMail.MailConfigs');
 		$records = $this->readCsv('mail_configs');
 		$record = [];
 		foreach($records[0] as $key => $value) {
@@ -541,10 +525,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$record[$key] = $value ?? '';
 		}
 		if (!$table->saveKeyValue($record)) {
-			$this->log('mail_configs のデータを保存できませんでした。');
+			$this->log('mail_configs のデータを保存できませんでした。', LogLevel::ERROR, 'migrate_db');
 			return false;
 		}
-		$this->tableLocator->remove('BcMails.MailConfigs');
 		return true;
 	}
 	
@@ -564,8 +547,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updatePermissions()
 	{
-		$this->tableLocator->remove('BaserCore.Permissions');
-		$table = $this->tableLocator->get('BaserCore.Permissions', ['connectionName' => $this->newDbConfigKeyName]);
+		$table = $this->tableLocator->get('BaserCore.Permissions');
 		$records = $this->readCsv('permissions');
 		foreach($records as $record) {
 			if ($record['url'] === '/admin/*') continue;
@@ -598,14 +580,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('permissions: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('permissions: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BaserCore.Permissions');
 		return true;
 	}
 	
@@ -615,12 +596,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updateUser()
 	{
-		$this->tableLocator->remove('BaserCore.Users');
-		$this->tableLocator->remove('BaserCore.UserGroups');
-		$this->tableLocator->remove('BaserCore.UsersUserGroups');
-		$this->tableLocator->get('BaserCore.UserGroups', ['connectionName' => $this->newDbConfigKeyName]);
-		$this->tableLocator->get('BaserCore.UsersUserGroups', ['connectionName' => $this->newDbConfigKeyName]);
-		$table = $this->tableLocator->get('BaserCore.Users', ['connectionName' => $this->newDbConfigKeyName]);
+		$this->tableLocator->get('BaserCore.UserGroups');
+		$this->tableLocator->get('BaserCore.UsersUserGroups');
+		$table = $this->tableLocator->get('BaserCore.Users');
 		$records = $this->readCsv('users');
 		foreach($records as $record) {
 			$record['status'] = true;
@@ -631,16 +609,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record, ['validate' => false]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('users: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('users: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BaserCore.Users');
-		$this->tableLocator->remove('BaserCore.UserGroups');
-		$this->tableLocator->remove('BaserCore.UsersUserGroups');
 		return true;
 	}
 	
@@ -650,8 +625,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 */
 	protected function _updateMailField()
 	{
-		$this->tableLocator->remove('BcMail.MailFields');
-		$table = $this->tableLocator->get('BcMail.MailFields', ['connectionName' => $this->newDbConfigKeyName]);
+		$table = $this->tableLocator->get('BcMail.MailFields');
 		$records = $this->readCsv('mail_fields');
 		foreach($records as $record) {
 			$record['text_rows'] = $record['rows'];
@@ -682,7 +656,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				if (!empty($record['options'])) $record['options'] .= '|';
 				$record['options'] .= 'regex|^([0-9\-]+)$';
 			}
-			$validEx = explode(',', $record['valid_ex']);
+			$validEx = $record['valid_ex']? explode(',', $record['valid_ex']) : [];
 			if (in_array('VALID_NOT_UNCHECKED', $validEx)) {
 				$record['valid'] = 1;
 				$key = array_search('VALID_NOT_UNCHECKED', $validEx);
@@ -696,14 +670,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
-				$this->log($e->getEntity()->getMessage());
+				$this->log('mail_fields: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			} catch (\Throwable $e) {
-				$this->log($e->getMessage());
+				$this->log('mail_fields: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
-		$this->tableLocator->remove('BcMail.MailFields');
 		return true;
 	}
 }

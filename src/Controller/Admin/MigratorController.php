@@ -13,6 +13,8 @@ namespace BcDbMigrator\Controller\Admin;
 
 use BaserCore\Utility\BcUtil;
 use BaserCore\Utility\BcZip;
+use Cake\Filesystem\File;
+use Psr\Log\LogLevel;
 
 /**
  * MigrationController
@@ -72,6 +74,8 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 		if (!empty($message[0])) {
 			$this->set('noticeMessage', $message);
 		}
+		$file = new File(LOGS . 'migrate_db.log', true);
+		$this->set('log', $file->read());
 	}
 	
 	/**
@@ -112,6 +116,7 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 	 */
 	protected function _migrate($data)
 	{
+		if(LOGS . 'migrate_db.log') unlink(LOGS . 'migrate_db.log');
 		if (empty($data['backup']['tmp_name'])) {
 			return false;
 		}
@@ -148,6 +153,7 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 		$Folder = new \Cake\Filesystem\Folder($this->_tmpPath);
 		$files = $Folder->read();
 		if (empty($files[0])) {
+			$this->log('バックアップファイルに問題があります。バージョンが違う可能性があります。', LogLevel::ERROR, 'migrate_db');
 			return false;
 		}
 		$valid = false;
@@ -162,6 +168,7 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
 			$Folder = new \Cake\Filesystem\Folder($this->_tmpPath . DS . $directFolder);
 			$files = $Folder->read();
 			if (empty($files[0])) {
+				$this->log('バックアップファイルに問題があります。バージョンが違う可能性があります。', LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 			foreach($files[0] as $file) {

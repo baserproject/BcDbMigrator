@@ -23,6 +23,7 @@ use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
 use Cake\Utility\Inflector;
 use Cake\Core\Configure;
+use Psr\Log\LogLevel;
 
 /**
  * include files
@@ -88,7 +89,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 * 一時ファイルを配置するパス
 	 * @var string
 	 */
-	private $tmpPath;
+	protected $tmpPath;
 	
 	/**
 	 * DB接続名
@@ -138,10 +139,14 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	{
 		$this->encoding = $encoding;
 		$this->_setUp();
+		$this->log('マイグレーションの準備完了', LogLevel::INFO, 'migrate_db');
 		$result = true;
 		if ($this->migrateSchema()) {
+			$this->log('スキーマのマイグレーション完了', LogLevel::INFO, 'migrate_db');
 			if (!$this->migrateData()) {
 				$result = false;
+			} else {
+				$this->log('データのマイグレーション完了', LogLevel::INFO, 'migrate_db');
 			}
 		} else {
 			$result = false;

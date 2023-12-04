@@ -1,3 +1,11 @@
+<?php
+/**
+ * @var \BaserCore\View\BcAdminAppView $this
+ * @var string $log 
+ */
+?>
+
+
 <script>
 	$(function () {
 		$("#BtnUpload").click(function () {
@@ -55,10 +63,19 @@
 	</div>
 	<div class="bca-actions__sub">
 	  <?php if ($this->getRequest()->getSession()->read('BcDbMigrator.file')): ?>
-				　<?php echo $this->BcBaser->link('ダウンロード', ['action' => 'download'], ['class' => 'bca-btn']) ?>
+				　<?php $this->BcBaser->link('ダウンロード', ['action' => 'download'], ['class' => 'bca-btn']) ?>
 	  <?php endif ?>
 	</div>
 </section>
 
 
 <?php echo $this->BcAdminForm->end() ?>
+
+<section class="bca-section">
+	<?php echo $this->BcAdminForm->control('log', [
+		'type' => 'textarea', 
+		'rows' => 10, 'value' => $log,
+		'readonly' => 'readonly'
+	]) ?>
+</section>
+		
