@@ -1,17 +1,17 @@
-BcDbMigrator
-==========
-baserCMS Database Migrator
-Copyright (c) baserCMS Users Community  
+# BcDbMigrator plugin for baserCMS
+Database Migrator for baserCMS   
 
-Documentation
--------------
+## Installation
+You can install this plugin into your baserCMS application using [composer](https://getcomposer.org).
 
-- See [baserCMS Official](http://basercms.net/)
-- See [baserCMS Users Community](http://basercms.net/community/index)
-- See [baserCMS Users Forum](http://forum.basercms.net/)
-- See [CakePHP - the rapid development PHP framework](https://cakephp.org/jp/)
+The recommended way to install composer packages is:
 
-License
--------
+```
+composer require baserproject/bc-db-migrator
+```
 
+## Documentation
+See [baserCMS４のデータベースを変換](https://baserproject.github.io/5/migration_db_from_ver4)
+
+## License
 Lincensed under the MIT lincense since version 2.0
