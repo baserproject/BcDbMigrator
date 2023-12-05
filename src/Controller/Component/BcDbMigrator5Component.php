@@ -25,11 +25,11 @@ use Psr\Log\LogLevel;
  */
 
 /**
- * BcDbMigrator4Component
+ * BcDbMigrator5Component
  */
 class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigratorInterface
 {
-	
+
 	/**
 	 * メッセージ
 	 * @var array
@@ -37,19 +37,19 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	public $message = [
 		'baserCMS 4.5.5 以上のバックアップデータの basrCMS 5系 への変換のみサポートしています。<br>また、プラグインは無効化された状態でデータが作成されますので、バックアップ復旧後、有効化する必要がありますのでご注意ください。',
 	];
-	
+
 	/**
 	 * サイトIDマッピング
 	 * @var array
 	 */
 	private $_siteIdMap = [];
-	
+
 	/**
 	 * 新しいパスワード
 	 * @var string
 	 */
 	private $newPassword = '';
-	
+
 	/**
 	 * 新しいパスワードを取得する
 	 * @return string
@@ -58,7 +58,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	{
 		return $this->newPassword;
 	}
-	
+
 	/**
 	 * メッセージを取得する
 	 *
@@ -68,7 +68,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	{
 		return $this->message;
 	}
-	
+
 	/**
 	 * スキーマのマイグレーションを実行
 	 */
@@ -84,7 +84,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->deleteSchema('BlogConfigs');
 		return true;
 	}
-	
+
 	/**
 	 * データのマイグレーションを実行する
 	 */
@@ -124,7 +124,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->_deleteCsv();
 		return $result;
 	}
-	
+
 	/**
 	 * 不要なCSVを削除
 	 */
@@ -136,7 +136,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->deleteCsv('mail_messages');
 		$this->deleteCsv('dblogs');
 	}
-	
+
 	/**
 	 * 新しいデータのCSVを出力する
 	 */
@@ -160,7 +160,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			rename($this->tmpPath . 'search_indices.csv', $this->tmpPath . 'search_indexes.csv');
 		}
 	}
-	
+
 	/**
 	 * 新テーブルをリセットする
 	 * CSVの構造変更が必要なものだけを対象とする
@@ -181,7 +181,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->dbService->truncate('users', $this->newDbConfigKeyName);
 		$this->dbService->truncate('users_user_groups', $this->newDbConfigKeyName);
 	}
-	
+
 	/**
 	 * Update Site
 	 * @return bool
@@ -207,7 +207,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		];
 		$sitesTable = $this->tableLocator->get('BaserCore.Sites');
 		$site = $sitesTable->newEntity($data, ['validate' => false]);
-		
+
 		$eventListeners = BcUtil::offEvent($sitesTable->getEventManager(), 'Model.afterSave');
 		try {
 			$sitesTable->saveOrFail($site);
@@ -218,7 +218,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$this->log($e->getMessage(), LogLevel::ERROR, 'migrate_db');
 			return false;
 		}
-		
+
 		$sites = $this->readCsv('sites');
 		foreach($sites as $site) {
 			$siteId = (int)$site['id'] + 1;
@@ -240,7 +240,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		BcUtil::onEvent($sitesTable->getEventManager(), 'Model.afterSave', $eventListeners);
 		return true;
 	}
-	
+
 	/**
 	 * Update Contents
 	 * @return bool
@@ -264,7 +264,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				if (!empty($record['created_date'])) $record['created_date'] = new FrozenTime($record['created_date']);
 				if (!empty($record['modified_date'])) $record['modified_date'] = new FrozenTime($record['modified_date']);
 			}
-			
+
 			try {
 				if(!$record['parent_id']) {
 					$entity = $table->newEntity($record, ['validate' => false]);
@@ -282,7 +282,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return true;
 	}
-	
+
 	/**
 	 * サイトIDを取得する
 	 * @param $src
@@ -296,7 +296,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return 1;
 	}
-	
+
 	/**
 	 * Update Plugin
 	 */
@@ -304,7 +304,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	{
 		$table = $this->tableLocator->get('BaserCore.Plugins');
 		$records = $this->readCsv('plugins');
-		
+
 		// コアプラグインを追加
 		$targetPluginNames = Hash::extract($records, '{n}.name');
 		$corePluginNames = \Cake\Core\Configure::read('BcApp.corePlugins');
@@ -320,7 +320,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			];
 		}
 		$records = array_merge($records, $corePlugins);
-		
+
 		$oldCorePlugins = ['Blog', 'Mail', 'Feed', 'Uploader'];
 		foreach($records as $record) {
 			if ($record['name'] === 'Feed') continue;
@@ -347,7 +347,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return true;
 	}
-	
+
 	/**
 	 * Update Page
 	 */
@@ -372,7 +372,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return true;
 	}
-	
+
 	/**
 	 * Update UserGroup
 	 */
@@ -395,7 +395,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				'use_move_contents' => $userGroup['use_move_contents'],
 				'auth_prefix_settings' => $authPrefixSettings,
 			];
-			
+
 			try {
 				$entity = $userGroupsTable->newEntity($data);
 				$userGroupsTable->saveOrFail($entity);
@@ -409,7 +409,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return $result;
 	}
-	
+
 	/**
 	 * Update SiteConfig
 	 */
@@ -439,14 +439,14 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$newRecord['outer_service_output_footer'] = '';
 		$newRecord['admin_theme'] = 'BcAdminThird';
 		$newRecord['editor'] = 'BaserCore.BcCkeditor';
-		
+
 		if (!$table->saveKeyValue($newRecord)) {
 			$this->log('site_configs のデータを保存できませんでした。', LogLevel::ERROR, 'migrate_db');
 			return false;
 		}
 		return true;
 	}
-	
+
 	/**
 	 * ブログ記事
 	 */
@@ -467,11 +467,11 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			if (!$record['detail_draft']) $record['detail_draft'] = '';
 			$record['title'] = $record['name'];
 			unset($record['name'], $record['posts_date']);
-			
+
 			foreach($record as $key => $value) {
 				if (is_null($value)) $record[$key] = '';
 			}
-			
+
 			try {
 				$entity = $table->patchEntity($table->newEmptyEntity(), $record);
 				$table->saveOrFail($entity);
@@ -485,7 +485,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return true;
 	}
-	
+
 	/**
 	 * ブログカテゴリ
 	 * @return bool
@@ -509,7 +509,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return true;
 	}
-	
+
 	/**
 	 * メール設定
 	 * @return bool
@@ -529,7 +529,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return true;
 	}
-	
+
 	/**
 	 * アクセスルールグループ
 	 * @return bool
@@ -539,7 +539,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$service = $this->getService(PermissionGroupsServiceInterface::class);
 		return $service->buildDefaultEtcRuleGroup('Admin', '管理システム');
 	}
-	
+
 	/**
 	 * アクセスルール
 	 * @return bool
@@ -588,7 +588,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return true;
 	}
-	
+
 	/**
 	 * Update User
 	 * @return bool
@@ -617,7 +617,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		}
 		return true;
 	}
-	
+
 	/**
 	 * Update MailField
 	 * @return bool
