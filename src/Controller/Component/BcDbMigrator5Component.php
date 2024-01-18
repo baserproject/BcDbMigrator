@@ -254,7 +254,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		foreach($records as $record) {
 			$record['site_id'] = $this->getSiteId($record['site_id']);
 			unset($record['deleted']);
-			if($record['plugin'] === 'Core') $record['plugin'] = 'BaserCore';
+			if($record['plugin'] === 'Core') {
+				if($record['type'] === 'ContentLink') {
+						$record['plugin'] = 'BcContentLink';
+				} else {
+						$record['plugin'] = 'BaserCore';
+				}
+			}
 			if($record['plugin'] === 'Blog') $record['plugin'] = 'BcBlog';
 			if($record['plugin'] === 'Mail') $record['plugin'] = 'BcMail';
 			if($record['plugin'] === 'Uploader') $record['plugin'] = 'BcUploader';
