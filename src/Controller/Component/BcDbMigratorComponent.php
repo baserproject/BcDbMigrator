@@ -126,6 +126,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 			'BcUploader',
 			'BcWidgetArea',
 		];
+
 		$this->_newDb = $this->_createMigrationDb($this->newDbConfigKeyName, $this->newDbPrefix);
 		$this->_oldDb = $this->_createMigrationDb($this->oldDbConfigKeyName, $this->oldDbPrefix);
 		ini_set('memory_limit', '-1');
@@ -201,7 +202,11 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 			if ($this->dbService->tableExists($table)) {
 			    // 末尾が _phinxlog で終わるテーブルも、BcDatabaseService::deleteTables() で
                 // 削除されてしまうため、最後に _ を追加する
-				$this->dbService->renameTable($table, 'bak__' . $table . '_');
+                $bakTable = 'bak__' . $table . '_';
+                if ($this->dbService->tableExists($bakTable)) {
+                    $this->dbService->dropTable($bakTable);
+                }
+				$this->dbService->renameTable($table, $bakTable);
 			}
 		}
 	}
@@ -350,7 +355,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	protected function _createMigrationDb($dbConfigKeyName, $prefix): ConnectionInterface
 	{
 		$dbConfig = ConnectionManager::getConfig('default');
-		$dbConfig['prefix'] = $prefix;
+		$dbConfig['prefix'] = (!empty($dbConfig['prefix']))? $prefix . $dbConfig['prefix'] : $prefix;
 		ConnectionManager::setConfig($dbConfigKeyName, $dbConfig);
 		return ConnectionManager::get($dbConfigKeyName);
 	}
@@ -476,6 +481,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 			if (preg_match('/^' . $this->newDbPrefix . '/', $table)) continue;
 			if (preg_match('/^' . $this->oldDbPrefix . '/', $table)) continue;
 			if (preg_match('/phinxlog$/', $table)) continue;
+			if (preg_match('/phinxlog_$/', $table)) continue;
 			if (!$dbService->writeSchema($table, [
 				'path' => $this->tmpPath
 			])) {
@@ -514,10 +520,11 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	{
 		$this->tableLocator->remove('BaserCore.App');
 		$this->tableLocator->get('BaserCore.App');
+		$prefix = ConnectionManager::get($this->newDbConfigKeyName)->config()['prefix'];
 		// CSVを書き出す
 		// BcDatabaseService::writeCsv() が、別のDB接続に対応していないため
 		// プレフィックス付で書き出しで指定している
-		$this->dbService->writeCsv($this->newDbPrefix . $table, [
+		$this->dbService->writeCsv($prefix . $table, [
 			'path' => $this->tmpPath . $table . '.csv',
 			'encoding' => 'UTF-8',
 			'init' => false,
