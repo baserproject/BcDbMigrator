@@ -221,10 +221,12 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 
 		$sites = $this->readCsv('sites');
 		foreach($sites as $site) {
-			$siteId = (int)$site['id'] + 1;
-			$siteId = $siteId + 1;
-			$this->_siteIdMap[$site['id']] = $siteId;
-			$site['id'] = $siteId;
+            $siteId = (int)$site['id'] + 1;
+            $this->_siteIdMap[$site['id']] = $siteId;
+        }
+		foreach($sites as $site) {
+			$site['id'] = $this->getSiteId($site['id']);
+			$site['main_site_id'] = $this->getSiteId($site['main_site_id']);
 			$site['theme'] = Configure::read('BcApp.defaultFrontTheme');
 			try {
 				$site = $sitesTable->newEntity($site, ['validate' => false]);
@@ -525,6 +527,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$table = $this->tableLocator->get('BcMail.MailConfigs');
 		$records = $this->readCsv('mail_configs');
 		$record = [];
+		if(empty($records[0])) return true;
 		foreach($records[0] as $key => $value) {
 			if (in_array($key, ['id', 'modified', 'created'])) continue;
 			$record[$key] = $value ?? '';
