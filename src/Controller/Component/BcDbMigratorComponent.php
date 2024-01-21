@@ -464,7 +464,9 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function deleteCsv($table)
 	{
-		unlink($this->tmpPath . $table . '.csv');
+	    $path = $this->tmpPath . $table . '.csv';
+	    if(!file_exists($path)) return;
+		unlink($path);
 	}
 
 	/**
@@ -476,14 +478,19 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$dbService = $this->getService(BcDatabaseServiceInterface::class);
 		/* @var \Cake\Database\Connection $db */
 		$db = ConnectionManager::get($this->newDbConfigKeyName);
+		$newPrefix = $db->config()['prefix'];
+		$oldPrefix = ConnectionManager::get($this->oldDbConfigKeyName)->config()['prefix'];
 		$tables = $db->getSchemaCollection()->listTables();
 		foreach($tables as $table) {
-			if (preg_match('/^' . $this->newDbPrefix . '/', $table)) continue;
-			if (preg_match('/^' . $this->oldDbPrefix . '/', $table)) continue;
+			if (preg_match('/^' . $newPrefix . '/', $table)) continue;
+			if (preg_match('/^' . $oldPrefix . '/', $table)) continue;
 			if (preg_match('/phinxlog$/', $table)) continue;
 			if (preg_match('/phinxlog_$/', $table)) continue;
+			$prefix = ConnectionManager::get('default')->config()['prefix'];
+			$table = preg_replace('/^' . $prefix . '/', '', $table);
 			if (!$dbService->writeSchema($table, [
-				'path' => $this->tmpPath
+				'path' => $this->tmpPath,
+				'prefix' => $prefix
 			])) {
 				return false;
 			}
