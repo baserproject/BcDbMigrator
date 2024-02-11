@@ -505,7 +505,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		foreach($records as $record) {
 			unset($record['owner_id']);
 			try {
-				$entity = $table->patchEntity($table->newEmptyEntity(), $record, ['validate' => false]);
+			    $entity = $table->newEntity($record, ['validate' => false, 'accessibleFields' => ['id' => true]]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('blog_categories: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
