@@ -274,10 +274,12 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			}
 
 			try {
+			    $entity = $table->newEmptyEntity();
+			    $entity->setAccess('id', true);
 				if(!$record['parent_id']) {
-					$entity = $table->newEntity($record, ['validate' => false]);
+					$entity = $table->patchEntity($entity, $record, ['validate' => false]);
 				} else {
-					$entity = $table->newEntity($record, ['validate' => false]);
+					$entity = $table->patchEntity($entity, $record, ['validate' => false]);
 				}
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
@@ -368,7 +370,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		foreach($records as $record) {
 			unset($record['code']);
 			try {
-				$entity = $table->newEntity($record, ['validate' => false]);
+			    $entity = $table->newEmptyEntity();
+			    $entity->setAccess('id', true);
+				$entity = $table->patchEntity($entity, $record, ['validate' => false]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('pages: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
@@ -405,7 +409,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			];
 
 			try {
-				$entity = $userGroupsTable->newEntity($data, ['validate' => false]);
+			    $entity = $userGroupsTable->newEmptyEntity();
+			    $entity->setAccess('id', true);
+				$entity = $userGroupsTable->patchEntity($entity, $data, ['validate' => false]);
 				$userGroupsTable->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('user_groups: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
@@ -481,7 +487,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			}
 
 			try {
-				$entity = $table->patchEntity($table->newEmptyEntity(), $record, ['validate' => false]);
+			    $entity = $table->newEmptyEntity();
+			    $entity->setAccess('id', true);
+				$entity = $table->patchEntity($entity, $record, ['validate' => false]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('blog_posts: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
@@ -505,7 +513,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		foreach($records as $record) {
 			unset($record['owner_id']);
 			try {
-			    $entity = $table->newEntity($record, ['validate' => false, 'accessibleFields' => ['id' => true]]);
+			    $entity = $table->newEmptyEntity();
+			    $entity->setAccess('id', true);
+			    $entity = $table->patchEntity($entity, $record, ['validate' => false, 'accessibleFields' => ['id' => true]]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('blog_categories: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
@@ -585,7 +595,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$record['url'] = preg_replace('/^\/admin\/mail\//', '/baser/admin/bc-mail/', $record['url']);
 			$record['url'] = preg_replace('/^\/admin\/uploader\//', '/baser/admin/bc-uploader/', $record['url']);
 			try {
-				$entity = $table->patchEntity($table->newEmptyEntity(), $record, ['validate' => false]);
+			    $entity = $table->newEmptyEntity();
+			    $entity->setAccess('id', true);
+				$entity = $table->patchEntity($entity, $record, ['validate' => false]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('permissions: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
@@ -614,7 +626,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$this->newPassword = $record['password'] = Security::randomString(10);
 			unset($record['user_group_id']);
 			try {
-				$entity = $table->patchEntity($table->newEmptyEntity(), $record, ['validate' => false]);
+			    $entity = $table->newEmptyEntity();
+			    $entity->setAccess('id', true);
+				$entity = $table->patchEntity($entity, $record, ['validate' => false]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('users: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
@@ -675,7 +689,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				if (is_null($value)) $record[$key] = '';
 			}
 			try {
-				$entity = $table->patchEntity($table->newEmptyEntity(), $record, ['validate' => false]);
+			    $entity = $table->newEmptyEntity();
+			    $entity->setAccess('id', true);
+				$entity = $table->patchEntity($entity, $record, ['validate' => false]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('mail_fields: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
