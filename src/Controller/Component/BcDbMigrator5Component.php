@@ -401,6 +401,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$authPrefixArray = explode(',', $userGroup['auth_prefix']);
 			$authPrefix = array_map('\Cake\Utility\Inflector::camelize', $authPrefixArray);
 			$data = [
+				'id' => $userGroup['id'],
 				'name' => $userGroup['name'],
 				'title' => $userGroup['title'],
 				'auth_prefix' => implode(',', $authPrefix),
