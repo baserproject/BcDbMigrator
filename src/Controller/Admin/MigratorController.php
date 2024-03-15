@@ -117,7 +117,7 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
      */
     protected function _migrate($data)
     {
-        if (LOGS . 'migrate_db.log') unlink(LOGS . 'migrate_db.log');
+        if (file_exists(LOGS . 'migrate_db.log')) unlink(LOGS . 'migrate_db.log');
         if (empty($data['backup']['tmp_name'])) {
             return false;
         }

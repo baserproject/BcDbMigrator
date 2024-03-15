@@ -468,7 +468,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _updateBlogPost()
 	{
 		$table = $this->tableLocator->get('BcBlog.BlogPosts');
-		BcUtil::offEvent($table->getEventManager(), 'Model.afterMarshal');
+		$afterMarshalEvents = BcUtil::offEvent($table->getEventManager(), 'Model.afterMarshal');
+		$beforeSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.beforeSave');
+		$afterSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.afterSave');
 		$records = $this->readCsv('blog_posts');
 		foreach($records as $record) {
 			if (BcUtil::verpoint(BcUtil::getVersion()) > BcUtil::verpoint('5.0.7')) {
@@ -500,6 +502,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				return false;
 			}
 		}
+		BcUtil::onEvent($table->getEventManager(), 'Model.afterMarshal', $afterMarshalEvents);
+		BcUtil::onEvent($table->getEventManager(), 'Model.beforeSave', $beforeSaveEvents);
+		BcUtil::onEvent($table->getEventManager(), 'Model.afterSave', $afterSaveEvents);
 		return true;
 	}
 

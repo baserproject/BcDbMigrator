@@ -16,6 +16,7 @@ use BaserCore\Service\BcDatabaseServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Plugin as CakePlugin;
+use Cake\Database\Driver\Mysql;
 use Cake\Datasource\ConnectionInterface;
 use Cake\Datasource\ConnectionManager;
 use Cake\Filesystem\File;
@@ -180,7 +181,9 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$this->tmpPath = $this->getController()->_tmpPath;
 		/* @var ConnectionInterface $db */
 		$db = ConnectionManager::get($this->oldDbConfigKeyName);
-		$db->execute("SET SESSION sql_mode = ''");
+		if($db->config()['driver'] === Mysql::class) {
+            $db->execute("SET SESSION sql_mode = ''");
+        }
 		$this->backupPhinxlog();
 		$this->_deleteMigrationTables();
 		$this->_createMigrationTables();
