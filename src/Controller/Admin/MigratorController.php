@@ -142,7 +142,7 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
         $Folder = new \BaserCore\Utility\BcFolder();
         $Folder->delete($this->_tmpPath);
         $Folder->create($this->_tmpPath, 0777);
-        $targetPath = $this->_tmpPath . $data['backup']['name'];
+        $targetPath = $this->_tmpPath . $data['backup']->getClientFilename();
         try {
             $data['backup']->moveTo($targetPath);
         } catch(\Throwable) {
