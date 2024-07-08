@@ -281,14 +281,14 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$appTable = TableRegistry::getTableLocator()->get('BaserCore.App');
 		$currentDb = $appTable->getConnection();
 		$appTable->setConnection($db);
-		$Folder = new Folder($path);
+		$Folder = new \BaserCore\Utility\BcFolder($path);
 		$prefix = $db->config()['prefix'];
 		$files = $Folder->read(true, true, true);
 		if (!empty($files[1])) {
 			foreach($files[1] as $file) {
 				if (preg_match('/\.php$/', $file)) {
 					$tableName = basename($file, '.php');
-					$File = new File($file);
+					$File = new \BaserCore\Utility\BcFile($file);
 					$contents = $File->read();
 					$contents = preg_replace('/class (.+?)Schema/', 'class ${1}OldSchema', $contents);
 					$contents = preg_replace('/extends CakeSchema/', 'extends \BaserCore\Database\Schema\BcSchema', $contents);
@@ -312,7 +312,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 						'prefix' => $prefix
 					]);
 					rename($old, $new);
-					$File = new File($new);
+					$File = new \BaserCore\Utility\BcFile($new);
 					$contents = $File->read();
 					$contents = preg_replace('/class (.+?)OldSchema/', 'class ${1}Schema', $contents);
 					$File->write($contents);
@@ -333,7 +333,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	protected function _loadCsv($db, $path)
 	{
-		$Folder = new Folder($path);
+		$Folder = new \BaserCore\Utility\BcFolder($path);
 		$files = $Folder->read(true, true, true);
 		if (!empty($files[1])) {
 			foreach($files[1] as $file) {
@@ -388,7 +388,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	private function getTables(string $plugin): array
 	{
-		$Folder = new Folder(CakePlugin::path($plugin) . 'src' . DS . 'Model' . DS . 'Table');
+		$Folder = new \BaserCore\Utility\BcFolder(CakePlugin::path($plugin) . 'src' . DS . 'Model' . DS . 'Table');
 		$files = $Folder->read(true, true, true);
 		$tables = [];
 		foreach($files[1] as $file) {
@@ -507,14 +507,14 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function constructBackupData()
 	{
-		$folder = new Folder($this->tmpPath . $this->coreFolder);
+		$folder = new \BaserCore\Utility\BcFolder($this->tmpPath . $this->coreFolder);
 		$files = $folder->read(true, true, true);
 		foreach($files[1] as $file) {
 			rename($file, $this->tmpPath . basename($file));
 		}
 		$folder->delete();
 
-		$folder = new Folder($this->tmpPath . 'plugin');
+		$folder = new \BaserCore\Utility\BcFolder($this->tmpPath . 'plugin');
 		$files = $folder->read(true, true, true);
 		foreach($files[1] as $file) {
 			rename($file, $this->tmpPath . basename($file));
