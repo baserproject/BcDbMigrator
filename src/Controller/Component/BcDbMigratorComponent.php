@@ -281,14 +281,16 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$appTable = TableRegistry::getTableLocator()->get('BaserCore.App');
 		$currentDb = $appTable->getConnection();
 		$appTable->setConnection($db);
-		$Folder = new Folder($path);
+		$Folder = new \BaserCore\Utility\BcFolder($path);
 		$prefix = $db->config()['prefix'];
 		$files = $Folder->read(true, true, true);
 		if (!empty($files[1])) {
+			// 追加indexが貼られているパターンをsettingから取得
+			$sqlRelationNames = Configure::read('BcDbMigrator.sqlRelationNames');
 			foreach($files[1] as $file) {
 				if (preg_match('/\.php$/', $file)) {
 					$tableName = basename($file, '.php');
-					$File = new File($file);
+					$File = new \BaserCore\Utility\BcFile($file);
 					$contents = $File->read();
 					$contents = preg_replace('/class (.+?)Schema/', 'class ${1}OldSchema', $contents);
 					$contents = preg_replace('/extends CakeSchema/', 'extends \BaserCore\Database\Schema\BcSchema', $contents);
@@ -299,6 +301,21 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 					$contents = preg_replace('/\'tableParameters\' => /', "'_options' => ", $contents);
 					$contents = preg_replace('/public \$file = .+?;/', "public \$table = '{$tableName}';", $contents);
 					$contents = str_replace("'blog_content_id_no_index' => array('column' => array('blog_content_id', 'no'), 'unique' => 1)", '', $contents);
+					// 追加indexはエラーになるので外す。
+					if (!empty($sqlRelationNames)) {
+						foreach ($sqlRelationNames as $sqlRelationName) {
+								$pattarnUnique = "'". $sqlRelationName. "' => array('column' => '". $sqlRelationName. "', 'unique' => 1)";// UNIQUE
+								$pattarnIndex = "'". $sqlRelationName. "' => array('column' => '". $sqlRelationName. "', 'unique' => 0)";// INDEX
+								if (strpos($contents, $pattarnUnique) !== false ) { // UNIQUE
+										$contents = str_replace($pattarnUnique. ",", '', $contents); //複数のindexの場合、カンマが末尾につくのでそのパターンで削除
+										$contents = str_replace($pattarnUnique, '', $contents);
+								}
+								if (strpos($contents, $pattarnIndex) !== false ) { // INDEX
+										$contents = str_replace($pattarnIndex. ",", '', $contents); //複数のindexの場合、カンマが末尾につくのでそのパターンで削除
+										$contents = str_replace($pattarnIndex, '', $contents);
+								}
+						}
+				}
 
 					$File->write($contents);
 					$File->close();
@@ -312,7 +329,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 						'prefix' => $prefix
 					]);
 					rename($old, $new);
-					$File = new File($new);
+					$File = new \BaserCore\Utility\BcFile($new);
 					$contents = $File->read();
 					$contents = preg_replace('/class (.+?)OldSchema/', 'class ${1}Schema', $contents);
 					$File->write($contents);
@@ -333,7 +350,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	protected function _loadCsv($db, $path)
 	{
-		$Folder = new Folder($path);
+		$Folder = new \BaserCore\Utility\BcFolder($path);
 		$files = $Folder->read(true, true, true);
 		if (!empty($files[1])) {
 			foreach($files[1] as $file) {
@@ -388,7 +405,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	private function getTables(string $plugin): array
 	{
-		$Folder = new Folder(CakePlugin::path($plugin) . 'src' . DS . 'Model' . DS . 'Table');
+		$Folder = new \BaserCore\Utility\BcFolder(CakePlugin::path($plugin) . 'src' . DS . 'Model' . DS . 'Table');
 		$files = $Folder->read(true, true, true);
 		$tables = [];
 		foreach($files[1] as $file) {
@@ -507,14 +524,14 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function constructBackupData()
 	{
-		$folder = new Folder($this->tmpPath . $this->coreFolder);
+		$folder = new \BaserCore\Utility\BcFolder($this->tmpPath . $this->coreFolder);
 		$files = $folder->read(true, true, true);
 		foreach($files[1] as $file) {
 			rename($file, $this->tmpPath . basename($file));
 		}
 		$folder->delete();
 
-		$folder = new Folder($this->tmpPath . 'plugin');
+		$folder = new \BaserCore\Utility\BcFolder($this->tmpPath . 'plugin');
 		$files = $folder->read(true, true, true);
 		foreach($files[1] as $file) {
 			rename($file, $this->tmpPath . basename($file));

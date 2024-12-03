@@ -16,4 +16,4 @@ use BaserCore\BcPlugin;
 /**
  * Plugin
  */
-class Plugin extends BcPlugin {}
+class BcDbMigratorPlugin extends BcPlugin {}

@@ -252,6 +252,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$records = $this->readCsv('contents');
 		$table = $this->tableLocator->get('BaserCore.Contents');
 		$table->removeBehavior('Tree');
+		BcUtil::offEvent($table->getEventManager(), 'Model.beforeMarshal');
 		BcUtil::offEvent($table->getEventManager(), 'Model.afterSave');
 		foreach($records as $record) {
 			$record['site_id'] = $this->getSiteId($record['site_id']);
@@ -276,11 +277,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			try {
 			    $entity = $table->newEmptyEntity();
 			    $entity->setAccess('id', true);
-				if(!$record['parent_id']) {
-					$entity = $table->patchEntity($entity, $record, ['validate' => false]);
-				} else {
-					$entity = $table->patchEntity($entity, $record, ['validate' => false]);
-				}
+                $entity = $table->patchEntity($entity, $record, ['validate' => false]);
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('contents: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
