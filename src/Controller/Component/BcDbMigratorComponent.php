@@ -285,6 +285,8 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$prefix = $db->config()['prefix'];
 		$files = $Folder->read(true, true, true);
 		if (!empty($files[1])) {
+			// 追加indexが貼られているパターンをsettingから取得
+			$sqlRelationNames = Configure::read('BcDbMigrator.sqlRelationNames');
 			foreach($files[1] as $file) {
 				if (preg_match('/\.php$/', $file)) {
 					$tableName = basename($file, '.php');
@@ -299,6 +301,21 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 					$contents = preg_replace('/\'tableParameters\' => /', "'_options' => ", $contents);
 					$contents = preg_replace('/public \$file = .+?;/', "public \$table = '{$tableName}';", $contents);
 					$contents = str_replace("'blog_content_id_no_index' => array('column' => array('blog_content_id', 'no'), 'unique' => 1)", '', $contents);
+					// 追加indexはエラーになるので外す。
+					if (!empty($sqlRelationNames)) {
+						foreach ($sqlRelationNames as $sqlRelationName) {
+								$pattarnUnique = "'". $sqlRelationName. "' => array('column' => '". $sqlRelationName. "', 'unique' => 1)";// UNIQUE
+								$pattarnIndex = "'". $sqlRelationName. "' => array('column' => '". $sqlRelationName. "', 'unique' => 0)";// INDEX
+								if (strpos($contents, $pattarnUnique) !== false ) { // UNIQUE
+										$contents = str_replace($pattarnUnique. ",", '', $contents); //複数のindexの場合、カンマが末尾につくのでそのパターンで削除
+										$contents = str_replace($pattarnUnique, '', $contents);
+								}
+								if (strpos($contents, $pattarnIndex) !== false ) { // INDEX
+										$contents = str_replace($pattarnIndex. ",", '', $contents); //複数のindexの場合、カンマが末尾につくのでそのパターンで削除
+										$contents = str_replace($pattarnIndex, '', $contents);
+								}
+						}
+				}
 
 					$File->write($contents);
 					$File->close();
