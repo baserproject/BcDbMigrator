@@ -629,7 +629,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$record['user_groups']['_ids'] = [$record['user_group_id']];
 			// HASH_TYPE が sha1 の場合はパスワードをそのまま移行する
 			if (env('HASH_TYPE') === 'sha1' && !empty($record['password'])) {
-					$this->newPassword = '';
+				$this->newPassword = '';
 			} else {
 				$this->newPassword = $record['password'] = Security::randomString(10);
 			}
