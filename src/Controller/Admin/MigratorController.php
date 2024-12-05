@@ -53,6 +53,8 @@ class MigratorController extends \BaserCore\Controller\Admin\BcAdminAppControlle
                 $password = $this->{$this->migrator}->getNewPassword();
                 if ($password) {
                     $this->BcMessage->setInfo('残念ながらパスワードの移行はできません。すべてのユーザーのパスワードは、「' . $password . '」にセットされています。ログイン後のパスワードの変更をお願いします。');
+                } elseif (env('HASH_TYPE') === 'sha1') {
+                    $this->BcMessage->setInfo('baserCMSの設定を引き継いでユーザーのパスワードは以前のものを保存しております。データ復旧後、シークレットウィンドウなどでログイン確認をお願いします。');
                 }
                 $this->redirect(['action' => 'index']);
             } else {
