@@ -14,7 +14,12 @@
   });
 </script>
 
-<p>利用方法については、<a href="https://baserproject.github.io/5/migration_db_from_ver4" target="_blank">baserCMS４のデータベースを変換</a>をご覧ください。
+<p>利用方法については、<a href="https://baserproject.github.io/5/migration_db_from_ver4" target="_blank">baserCMS４のデータベースを変換</a>をご覧ください。</p>
+<p>baserCMS4系のパスワードをそのまま引き継ぎたい場合は、<code>/config/.env</code> に以下の設定を追加してください。</p>
+<pre>
+export HASH_TYPE="sha1"
+</pre>
+
 <?php if (!empty($noticeMessage[0])): ?>
   <section class="bca-section">
     <p><?php echo implode('</li><li>', $noticeMessage) ?></p>
