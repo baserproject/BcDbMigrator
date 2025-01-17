@@ -19,6 +19,7 @@ use Cake\Utility\Security;
 use CakephpFixtureFactories\Error\PersistenceException;
 use Cake\Core\Configure;
 use Psr\Log\LogLevel;
+use ReflectionClass;
 
 /**
  * include files
@@ -626,12 +627,23 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		foreach($records as $record) {
 			$record['status'] = true;
 			$record['user_groups']['_ids'] = [$record['user_group_id']];
-			$this->newPassword = $record['password'] = Security::randomString(10);
+			$oldPassword = $record['password']?? '';
+            $this->newPassword = $record['password'] = Security::randomString(10);
 			unset($record['user_group_id']);
 			try {
 			    $entity = $table->newEmptyEntity();
 			    $entity->setAccess('id', true);
 				$entity = $table->patchEntity($entity, $record, ['validate' => false]);
+				// HASH_TYPE が sha1 の場合はパスワードをそのまま移行する
+				if (env('HASH_TYPE') === 'sha1' && $oldPassword) {
+					// Entityの構造を無視して値を書き換える
+					$reflection = new ReflectionClass($entity);
+					$property = $reflection->getProperty('_fields');
+					$property->setAccessible(true);
+					$fields = $property->getValue($entity);
+					$fields['password'] = $oldPassword;
+					$property->setValue($entity, $fields);
+				}
 				$table->saveOrFail($entity);
 			} catch (PersistenceException $e) {
 				$this->log('users: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
