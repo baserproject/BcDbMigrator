@@ -598,6 +598,8 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			$record['url'] = preg_replace('/^\/admin\/blog\//', '/baser/admin/bc-blog/', $record['url']);
 			$record['url'] = preg_replace('/^\/admin\/mail\//', '/baser/admin/bc-mail/', $record['url']);
 			$record['url'] = preg_replace('/^\/admin\/uploader\//', '/baser/admin/bc-uploader/', $record['url']);
+			$record['url'] = preg_replace('/^\/admin\/burger_editor\//', '/baser/admin/burger-editor/', $record['url']);
+			$record['url'] = preg_replace('/^\/admin\/optional_link\//', '/baser/admin/optional-link/', $record['url']);
 			try {
 			    $entity = $table->newEmptyEntity();
 			    $entity->setAccess('id', true);
