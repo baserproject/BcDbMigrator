@@ -301,6 +301,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 					$contents = preg_replace('/\'tableParameters\' => /', "'_options' => ", $contents);
 					$contents = preg_replace('/public \$file = .+?;/', "public \$table = '{$tableName}';", $contents);
 					$contents = str_replace("'blog_content_id_no_index' => array('column' => array('blog_content_id', 'no'), 'unique' => 1)", '', $contents);
+					$contents = str_replace("'blog_content_id_no_index' => array('unique' => true, 'column' => array('blog_content_id', 'no'))", '', $contents);
 					// 追加indexはエラーになるので外す。
 					if (!empty($sqlRelationNames)) {
 						foreach ($sqlRelationNames as $sqlRelationName) {
