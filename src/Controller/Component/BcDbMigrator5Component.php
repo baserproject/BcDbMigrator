@@ -255,6 +255,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$table->removeBehavior('Tree');
 		BcUtil::offEvent($table->getEventManager(), 'Model.beforeMarshal');
 		BcUtil::offEvent($table->getEventManager(), 'Model.afterSave');
+		// ツリー構造のデータは lft の順にソートして親ノードから先にインポートする
+		usort($records, function($a, $b) {
+			return ($a['lft'] ?? 0) <=> ($b['lft'] ?? 0);
+		});
 		foreach($records as $record) {
 			$record['site_id'] = $this->getSiteId($record['site_id']);
 			unset($record['deleted']);
@@ -514,6 +518,10 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	{
 		$table = $this->tableLocator->get('BcBlog.BlogCategories');
 		$records = $this->readCsv('blog_categories');
+		// ツリー構造のデータは lft の順にソートして親ノードから先にインポートする
+		usort($records, function($a, $b) {
+			return ($a['lft'] ?? 0) <=> ($b['lft'] ?? 0);
+		});
 		foreach($records as $record) {
 			unset($record['owner_id']);
 			try {
