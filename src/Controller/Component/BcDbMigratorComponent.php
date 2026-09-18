@@ -501,12 +501,18 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$db = ConnectionManager::get($this->newDbConfigKeyName);
 		$newPrefix = $db->config()['prefix'];
 		$oldPrefix = ConnectionManager::get($this->oldDbConfigKeyName)->config()['prefix'];
+		$defaultPrefix = ConnectionManager::get('default')->config()['prefix'];
 		$tables = $db->getSchemaCollection()->listTables();
 		foreach($tables as $table) {
 			if (preg_match('/^' . $newPrefix . '/', $table)) continue;
 			if (preg_match('/^' . $oldPrefix . '/', $table)) continue;
 			if (preg_match('/phinxlog$/', $table)) continue;
 			if (preg_match('/phinxlog_$/', $table)) continue;
+			// プレフィックスの付いていないテーブルは対象外とする。
+			// 以降は付いている前提で名前を組み立てるため、存在しない名前を describe して落ちる。
+			// プレフィックス未設定の環境では preg_match('/^/', ...) が常に真になるので、
+			// 空でないときだけ判定する
+			if ($defaultPrefix && !preg_match('/^' . preg_quote($defaultPrefix, '/') . '/', $table)) continue;
 			$prefix = ConnectionManager::get('default')->config()['prefix'];
 			$table = preg_replace('/^' . $prefix . '/', '', $table);
 			if (!$dbService->writeSchema($table, [
