@@ -318,6 +318,10 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 						}
 				}
 
+					// baser-core 5.4 の BcDatabaseService::isValidSchemaFile() は、RCE対策として
+					// スキーマファイルにメソッドが1つでもあると拒否する。4系 CakeSchema のスキーマは
+					// 必ず before()/after() を持つため、ここで除去しないと変換が全滅する。
+					$contents = $this->_removeMethods($contents);
 					$File->write($contents);
 					$File->close();
 					$old = dirname($file) . DS . Inflector::camelize($tableName) . 'OldSchema.php';
@@ -343,6 +347,110 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	}
 
 	/**
+	 * CSV内のゼロ日付（0000-00-00）を空文字に置き換える
+	 *
+	 * MySQL 5.x 時代の baserCMS 4 サイトは `0000-00-00 00:00:00` を保持していることがあるが、
+	 * MySQL 8 の既定 sql_mode（NO_ZERO_DATE / NO_ZERO_IN_DATE / STRICT_TRANS_TABLES）では
+	 * 受け付けられない。さらに PHP がこの値を DateTime に変換すると `-0001-11-30 00:00:00`
+	 * となり、これは MySQL の DATETIME 表現範囲（1000〜9999年）外のため sql_mode を緩めても
+	 * 投入できない。そこで CSV の時点で空（=NULL）に倒しておく。
+	 *
+	 * @param string $file CSVファイルパス
+	 * @return void
+	 */
+	protected function _sanitizeZeroDate(string $file): void
+	{
+		$contents = file_get_contents($file);
+		if ($contents === false || strpos($contents, '0000-00-00') === false) {
+			return;
+		}
+		$replaced = str_replace(
+			['"0000-00-00 00:00:00"', '"0000-00-00"'],
+			['""', '""'],
+			$contents
+		);
+		if ($replaced !== $contents) {
+			file_put_contents($file, $replaced);
+		}
+	}
+
+	/**
+	 * PHPソースからメソッド定義をすべて除去する
+	 *
+	 * baser-core 5.4 の BcDatabaseService::isValidSchemaFile() は、スキーマファイルに
+	 * 「BcSchema を継承しメソッドを一切持たないクラスが1つだけ」であることを要求する
+	 * （GHSA-5hvm-279m-gg7r / GHSA-cg65-f2m7-9fqj のRCE対策）。
+	 * 4系 CakeSchema のスキーマファイルは before()/after() を持つため、そのままでは
+	 * 「無効なスキーマファイル」として弾かれる。
+	 *
+	 * 正規表現ではネストした波括弧を取り違えるため、トークン単位で走査して
+	 * 修飾子・docコメントを含むメソッド定義の範囲を特定し、除去する。
+	 *
+	 * @param string $contents
+	 * @return string
+	 */
+	protected function _removeMethods(string $contents): string
+	{
+		$tokens = token_get_all($contents);
+
+		// 各トークンの開始オフセットを算出
+		$offsets = [];
+		$pos = 0;
+		foreach($tokens as $i => $token) {
+			$offsets[$i] = $pos;
+			$pos += strlen(is_array($token)? $token[1] : $token);
+		}
+
+		$skippable = [T_PUBLIC, T_PROTECTED, T_PRIVATE, T_STATIC, T_ABSTRACT, T_FINAL, T_WHITESPACE, T_DOC_COMMENT];
+		$ranges = [];
+		$count = count($tokens);
+
+		for($i = 0; $i < $count; $i++) {
+			if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) continue;
+
+			// 無名関数（function () {...}）は対象外
+			$next = $i + 1;
+			while($next < $count && is_array($tokens[$next]) && $tokens[$next][0] === T_WHITESPACE) $next++;
+			if ($next >= $count || !is_array($tokens[$next]) || $tokens[$next][0] !== T_STRING) continue;
+
+			// 手前の修飾子・docコメントまで遡って開始位置とする
+			$start = $i;
+			for($j = $i - 1; $j >= 0; $j--) {
+				if (is_array($tokens[$j]) && in_array($tokens[$j][0], $skippable, true)) {
+					$start = $j;
+					continue;
+				}
+				break;
+			}
+
+			// 本体の終わりを探す（波括弧の対応を数える。抽象メソッドは ; で終わる）
+			$depth = 0;
+			$end = null;
+			for($k = $next; $k < $count; $k++) {
+				$text = is_array($tokens[$k])? $tokens[$k][1] : $tokens[$k];
+				if ($text === '{') {
+					$depth++;
+				} elseif ($text === '}') {
+					$depth--;
+					if ($depth === 0) { $end = $offsets[$k] + 1; break; }
+				} elseif ($text === ';' && $depth === 0) {
+					$end = $offsets[$k] + 1; break;
+				}
+			}
+			if ($end === null) continue;
+
+			$ranges[] = [$offsets[$start], $end];
+			$i = $k;
+		}
+
+		// 後ろから削る（オフセットのずれを避けるため）
+		foreach(array_reverse($ranges) as $range) {
+			$contents = substr($contents, 0, $range[0]) . "\n" . substr($contents, $range[1]);
+		}
+		return $contents;
+	}
+
+	/**
 	 * CSVファイルをデータベースに読み込む
 	 *
 	 * @param ConnectionInterface $db
@@ -356,6 +464,7 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		if (!empty($files[1])) {
 			foreach($files[1] as $file) {
 				if (preg_match('/\.csv/', $file)) {
+					$this->_sanitizeZeroDate($file);
 					try {
 						$this->dbService->loadCsv([
 							'path' => $file,
