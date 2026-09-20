@@ -369,7 +369,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		BcUtil::offEvent($table->getEventManager(), 'Model.afterMarshal');
 		$table->searchIndexSaving = false;
 		$records = $this->readCsv('pages');
+		$droppedCodes = [];
 		foreach($records as $record) {
+			// 5系の pages に code カラムは無いため取り込めない。
+			// 黙って消えると移行後に該当ページだけ表示が崩れて原因を追いにくいので記録する
+			if (!empty(trim((string)($record['code'] ?? '')))) {
+				$droppedCodes[] = $record['id'] ?? '?';
+			}
 			unset($record['code']);
 			try {
 			    $entity = $table->newEmptyEntity();
@@ -383,6 +389,11 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$this->log('pages: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
+		}
+		if ($droppedCodes) {
+			$this->log('pages: 5系に code カラムが無いため、次の固定ページの「コード」は移行されませんでした。'
+				. '独自の style / script を設定していた場合は本文等へ移してください。 id: '
+				. implode(', ', $droppedCodes), LogLevel::WARNING, 'migrate_db');
 		}
 		return true;
 	}
