@@ -263,6 +263,12 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		$this->_createTableBySchema($this->_oldDb, $this->tmpPath . 'plugin');
 		$this->_loadCsv($this->_oldDb, $this->tmpPath . $this->coreFolder);
 		$this->_loadCsv($this->_oldDb, $this->tmpPath . 'plugin');
+		// 一時テーブルの TEXT を LONGTEXT に広げる。
+		// マイグレーションは limit => 4294967295 を指定しているが、
+		// 一時接続上では TEXT（65,535バイト）で作られてしまい、
+		// 64KB を超える本文があると SQLSTATE[22001] Data too long で変換が止まる。
+		$this->_widenTextColumns();
+
 
 		BcUtil::clearAllCache();
 		TableRegistry::getTableLocator()->clear();
@@ -674,4 +680,45 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 		]);
 	}
 
+	/**
+	 * 新バージョン側の一時テーブルの TEXT カラムを LONGTEXT に広げる
+	 *
+	 * マイグレーションが limit => 4294967295（LONGTEXT 相当）を指定していても、
+	 * 変換用の一時接続上では TEXT（65,535バイト）で作られることがある。
+	 * BurgerEditor で作った固定ページやブログ記事、CuApprover の下書き、
+	 * RevisionControl の履歴など 64KB を超える本文があると、
+	 * SQLSTATE[22001] Data too long で変換が止まる。
+	 *
+	 * 照合順序と NULL 可否は元の定義を維持する。
+	 * 変換用の一時テーブルだけが対象なので、既存のデータには影響しない。
+	 *
+	 * MySQL のみを対象とする。PostgreSQL と SQLite の text は容量の上限が無く、
+	 * この問題は起きない。
+	 *
+	 * @return void
+	 */
+	protected function _widenTextColumns()
+	{
+		$db = ConnectionManager::get($this->newDbConfigKeyName);
+		$config = $db->config();
+		// MySQL 固有の問題。PostgreSQL と SQLite の text は容量の上限が無いため対処は要らない。
+		// information_schema の参照と ALTER TABLE ... MODIFY ... LONGTEXT も MySQL の構文なので、
+		// ここで対象を絞っておかないと他のドライバで落ちる。
+		if ($config['driver'] !== Mysql::class) return;
+		$prefix = $config['prefix'];
+		if (!$prefix) return;
+		$rows = $db->execute(
+			"SELECT TABLE_NAME, COLUMN_NAME, COLLATION_NAME, IS_NULLABLE FROM information_schema.COLUMNS " .
+			"WHERE TABLE_SCHEMA = ? AND DATA_TYPE = 'text' AND TABLE_NAME LIKE ?",
+			[$config['database'], $prefix . '%']
+		)->fetchAll('assoc');
+		foreach($rows as $row) {
+			$collate = $row['COLLATION_NAME'] ? ' COLLATE ' . $row['COLLATION_NAME'] : '';
+			$null = ($row['IS_NULLABLE'] === 'NO') ? ' NOT NULL' : ' NULL';
+			$db->execute(sprintf(
+				'ALTER TABLE `%s` MODIFY `%s` LONGTEXT%s%s',
+				$row['TABLE_NAME'], $row['COLUMN_NAME'], $collate, $null
+			));
+		}
+	}
 }
