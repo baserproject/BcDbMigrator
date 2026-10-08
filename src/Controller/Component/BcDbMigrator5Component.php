@@ -128,14 +128,28 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 
 	/**
 	 * 不要なCSVを削除
+	 *
+	 * 5系に対応するテーブルが無い、または5系側で作り直す必要があるため、
+	 * 意図的に変換の対象外としているもの。
+	 * 黙って消えると不具合に見えるので、何を捨てたかをログに残す。
 	 */
 	protected function _deleteCsv()
 	{
-		$this->deleteCsv('blog_configs');
-		$this->deleteCsv('feed_configs');
-		$this->deleteCsv('feed_details');
-		$this->deleteCsv('mail_messages');
-		$this->deleteCsv('dblogs');
+		$tables = [
+			'blog_configs' => '5系ではブログごとの設定に統合されている',
+			'feed_configs' => 'Feed プラグインは5系で廃止',
+			'feed_details' => 'Feed プラグインは5系で廃止',
+			'mail_messages' => 'フォームごとのテーブルに分かれており、スキーマが環境ごとに異なる',
+			'dblogs' => '5系では利用状況の記録方法が異なる。移行後、ダッシュボードの「最近の動き」が空になる',
+		];
+		foreach($tables as $table => $reason) {
+			$this->deleteCsv($table);
+		}
+		$this->log('次のテーブルは5系に引き継がれません（仕様）: '
+			. implode(' / ', array_map(
+				fn($t, $r) => $t . '（' . $r . '）',
+				array_keys($tables), $tables
+			)), LogLevel::INFO, 'migrate_db');
 	}
 
 	/**
