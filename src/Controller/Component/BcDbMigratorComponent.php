@@ -198,19 +198,17 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function backupPhinxlog()
 	{
-		$corePlugins = Configure::read('BcApp.corePlugins');
-		array_unshift($corePlugins, 'BaserCore');
-		foreach($corePlugins as $corePlugin) {
-			$table = Inflector::underscore($corePlugin) . '_phinxlog';
-			if ($this->dbService->tableExists($table)) {
-			    // 末尾が _phinxlog で終わるテーブルも、BcDatabaseService::deleteTables() で
-                // 削除されてしまうため、最後に _ を追加する
-                $bakTable = 'bak__' . $table . '_';
-                if ($this->dbService->tableExists($bakTable)) {
-                    $this->dbService->dropTable($bakTable);
-                }
-				$this->dbService->renameTable($table, $bakTable);
+		// コアプラグインに限らず、_phinxlog で終わるテーブルはすべて
+		// BcDatabaseService::deleteTables() で削除されてしまうため、すべて退避する
+		$tables = ConnectionManager::get('default')->getSchemaCollection()->listTables();
+		foreach($tables as $table) {
+			if (!preg_match('/_phinxlog$/', $table)) continue;
+			// 退避先も _phinxlog で終わると削除されてしまうため、最後に _ を追加する
+			$bakTable = 'bak__' . $table . '_';
+			if ($this->dbService->tableExists($bakTable)) {
+				$this->dbService->dropTable($bakTable);
 			}
+			$this->dbService->renameTable($table, $bakTable);
 		}
 	}
 
@@ -220,13 +218,10 @@ class BcDbMigratorComponent extends \Cake\Controller\Component
 	 */
 	public function restorePhinxlog()
 	{
-		$corePlugins = Configure::read('BcApp.corePlugins');
-		array_unshift($corePlugins, 'BaserCore');
-		foreach($corePlugins as $corePlugin) {
-			$table = 'bak__' . Inflector::underscore($corePlugin) . '_phinxlog_';
-			if ($this->dbService->tableExists($table)) {
-				$this->dbService->renameTable($table, Inflector::underscore($corePlugin) . '_phinxlog');
-			}
+		$tables = ConnectionManager::get('default')->getSchemaCollection()->listTables();
+		foreach($tables as $table) {
+			if (!preg_match('/^bak__(.+_phinxlog)_$/', $table, $matches)) continue;
+			$this->dbService->renameTable($table, $matches[1]);
 		}
 	}
 
