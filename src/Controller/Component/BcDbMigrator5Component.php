@@ -99,6 +99,8 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		if (!$this->_updateUserGroup()) $result = false;
 		// コンテンツ
 		if (!$this->_updateContent()) $result = false;
+		// 検索インデックス
+		if (!$this->_updateSearchIndex()) $result = false;
 		// ページ
 		if (!$this->_updatePage()) $result = false;
 		// ブログ記事
@@ -172,7 +174,8 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->writeCsv('users');
 		$this->writeCsv('users_user_groups');
 		if (file_exists($this->tmpPath . 'search_indices.csv')) {
-			rename($this->tmpPath . 'search_indices.csv', $this->tmpPath . 'search_indexes.csv');
+			$this->writeCsv('search_indexes');
+			$this->deleteCsv('search_indices');
 		}
 	}
 
@@ -368,6 +371,39 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				return false;
 			} catch (\Throwable $e) {
 				$this->log('plugins: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Update SearchIndexes
+	 *
+	 * 4系の search_indices を5系の search_indexes へ取り込み、
+	 * サイトID（4系のメインサイトは 0）を contents と同じく5系のサイトIDへ変換する。
+	 * 変換しないとメインサイトの検索インデックスが site_id = 0 のまま残り、
+	 * サイト内検索やサイトマップ（Sitemapxml 等）の結果が空になる。
+	 * @return bool
+	 */
+	protected function _updateSearchIndex()
+	{
+		if (!file_exists($this->tmpPath . 'search_indices.csv')) return true;
+		$this->dbService->truncate('search_indexes', $this->newDbConfigKeyName);
+		$records = $this->readCsv('search_indices');
+		$table = $this->tableLocator->get('BcSearchIndex.SearchIndexes');
+		foreach($records as $record) {
+			$record['site_id'] = $this->getSiteId($record['site_id']);
+			try {
+				$entity = $table->newEmptyEntity();
+				$entity->setAccess('id', true);
+				$entity = $table->patchEntity($entity, $record, ['validate' => false]);
+				$table->saveOrFail($entity);
+			} catch (PersistenceException $e) {
+				$this->log('search_indexes: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
+				return false;
+			} catch (\Throwable $e) {
+				$this->log('search_indexes: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
