@@ -18,6 +18,7 @@ use Cake\I18n\FrozenTime;
 use Cake\Utility\Security;
 use CakephpFixtureFactories\Error\PersistenceException;
 use Cake\Core\Configure;
+use Cake\Datasource\ConnectionManager;
 use Psr\Log\LogLevel;
 use ReflectionClass;
 
@@ -50,6 +51,21 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 * @var string
 	 */
 	private $newPassword = '';
+
+	/**
+	 * startup
+	 *
+	 * 移行先に SEO 設定のテーブル（seo_metas）がある場合は、BcSeo も変換の対象にする
+	 * @param \Cake\Event\EventInterface $event
+	 */
+	public function startup(\Cake\Event\EventInterface $event)
+	{
+		parent::startup($event);
+		$db = ConnectionManager::get('default');
+		if (in_array($db->config()['prefix'] . 'seo_metas', $db->getSchemaCollection()->listTables())) {
+			$this->_defaultPlugins[] = 'BcSeo';
+		}
+	}
 
 	/**
 	 * 新しいパスワードを取得する
@@ -99,6 +115,8 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		if (!$this->_updateUserGroup()) $result = false;
 		// コンテンツ
 		if (!$this->_updateContent()) $result = false;
+		// SEO 設定（サイト・コンテンツの説明文とキーワード）
+		if (!$this->_updateSeoMeta()) $result = false;
 		// 検索インデックス
 		if (!$this->_updateSearchIndex()) $result = false;
 		// ページ
@@ -312,6 +330,62 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				return false;
 			}
 		}
+		return true;
+	}
+
+	/**
+	 * SEO 設定
+	 *
+	 * 4系のサイト・コンテンツの説明文とキーワードは、5系では sites・contents の列ではなく
+	 * BcSeo の seo_metas に保存するため、seo_metas の行として移行する
+	 * @return bool
+	 */
+	protected function _updateSeoMeta()
+	{
+		if (!in_array('BcSeo', $this->_defaultPlugins)) return true;
+		$this->dbService->truncate('seo_metas', $this->newDbConfigKeyName);
+		$rows = [];
+		// メインサイト
+		$main = ['description' => '', 'keywords' => ''];
+		foreach($this->readCsv('site_configs') as $siteConfig) {
+			if ($siteConfig['name'] === 'description') $main['description'] = $siteConfig['value'];
+			if ($siteConfig['name'] === 'keyword') $main['keywords'] = $siteConfig['value'];
+		}
+		$rows[] = ['table_alias' => 'Sites', 'entity_id' => 1] + $main;
+		// サブサイト
+		foreach($this->readCsv('sites') as $site) {
+			$rows[] = [
+				'table_alias' => 'Sites',
+				'entity_id' => $this->getSiteId($site['id']),
+				'description' => $site['description'] ?? '',
+				'keywords' => $site['keyword'] ?? '',
+			];
+		}
+		// コンテンツ
+		foreach($this->readCsv('contents') as $content) {
+			$rows[] = [
+				'table_alias' => 'Contents',
+				'entity_id' => $content['id'],
+				'description' => $content['description'] ?? '',
+				'keywords' => '',
+			];
+		}
+		$table = $this->tableLocator->get('BcSeo.SeoMetas');
+		foreach($rows as $row) {
+			if (($row['description'] ?? '') === '' && ($row['keywords'] ?? '') === '') continue;
+			$row['table_id'] = 0;
+			try {
+				$entity = $table->patchEntity($table->newEmptyEntity(), $row, ['validate' => false]);
+				$table->saveOrFail($entity);
+			} catch (PersistenceException $e) {
+				$this->log('seo_metas: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
+				return false;
+			} catch (\Throwable $e) {
+				$this->log('seo_metas: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
+				return false;
+			}
+		}
+		$this->writeCsv('seo_metas');
 		return true;
 	}
 
