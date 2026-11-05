@@ -531,6 +531,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	protected function _updateBlogPost()
 	{
 		$table = $this->tableLocator->get('BcBlog.BlogPosts');
+		// アップロードのビヘイビアが「年/月/ファイル名」の形のアイキャッチを不正な値として空にするため、
+		// beforeMarshal も止める（_updateContent() と同じ扱い）
+		$beforeMarshalEvents = BcUtil::offEvent($table->getEventManager(), 'Model.beforeMarshal');
 		$afterMarshalEvents = BcUtil::offEvent($table->getEventManager(), 'Model.afterMarshal');
 		$beforeSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.beforeSave');
 		$afterSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.afterSave');
@@ -565,6 +568,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				return false;
 			}
 		}
+		BcUtil::onEvent($table->getEventManager(), 'Model.beforeMarshal', $beforeMarshalEvents);
 		BcUtil::onEvent($table->getEventManager(), 'Model.afterMarshal', $afterMarshalEvents);
 		BcUtil::onEvent($table->getEventManager(), 'Model.beforeSave', $beforeSaveEvents);
 		BcUtil::onEvent($table->getEventManager(), 'Model.afterSave', $afterSaveEvents);
