@@ -36,7 +36,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	 * @var array
 	 */
 	public $message = [
-		'baserCMS 4.5.5 以上のバックアップデータの basrCMS 5系 への変換のみサポートしています。<br>また、プラグインは無効化された状態でデータが作成されますので、バックアップ復旧後、有効化する必要がありますのでご注意ください。',
+		'baserCMS 4.5.5 以上のバックアップデータの basrCMS 5系 への変換のみサポートしています。<br>また、コアプラグイン以外のプラグインは無効化された状態でデータが作成されますので、バックアップ復旧後、有効化する必要がありますのでご注意ください。',
 	];
 
 	/**
@@ -360,7 +360,9 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$record['version'] = \BaserCore\Utility\BcUtil::getVersion();
 			}
 			$record['db_init'] = $record['db_inited'];
-			$record['status'] = false;
+			// コアプラグインは有効のまま移行する。無効にすると、復元後にブログやメールなどが使えなくなる。
+			// それ以外のプラグインは、5系版の導入状況が分からないため無効で移行する
+			$record['status'] = in_array($record['name'], $corePluginNames);
 			$record['priority'] = $table->getMax('priority') + 1;
 			unset($record['db_inited']);
 			try {
