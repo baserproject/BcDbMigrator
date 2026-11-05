@@ -701,11 +701,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->tableLocator->get('BaserCore.UsersUserGroups');
 		$table = $this->tableLocator->get('BaserCore.Users');
 		$records = $this->readCsv('users');
+		// 画面とコマンドでは「すべてのユーザーのパスワード」として 1 つだけ表示するため、全ユーザーに同じ値を付ける
+		$this->newPassword = Security::randomString(10);
 		foreach($records as $record) {
 			$record['status'] = true;
 			$record['user_groups']['_ids'] = [$record['user_group_id']];
 			$oldPassword = $record['password']?? '';
-            $this->newPassword = $record['password'] = Security::randomString(10);
+			$record['password'] = $this->newPassword;
 			unset($record['user_group_id']);
 			try {
 			    $entity = $table->newEmptyEntity();
