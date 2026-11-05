@@ -113,6 +113,8 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		if (!$this->_updatePermissionGroups()) $result = false;
 		// アクセスルール
 		if (!$this->_updatePermissions()) $result = false;
+		// よく使う項目
+		if (!$this->_updateFavorite()) $result = false;
 		// プラグイン
 		if (!$this->_updatePlugin()) $result = false;
 		// サイト設定
@@ -188,6 +190,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->dbService->truncate('blog_categories', $this->newDbConfigKeyName);
 		$this->dbService->truncate('blog_posts', $this->newDbConfigKeyName);
 		$this->dbService->truncate('contents', $this->newDbConfigKeyName);
+		$this->dbService->truncate('favorites', $this->newDbConfigKeyName);
 		$this->dbService->truncate('mail_configs', $this->newDbConfigKeyName);
 		$this->dbService->truncate('mail_fields', $this->newDbConfigKeyName);
 		$this->dbService->truncate('pages', $this->newDbConfigKeyName);
@@ -644,31 +647,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			if ($record['url'] === '/admin/*') continue;
 			$record['permission_group_id'] = 1;
 			$record['method'] = '*';
-			$record['url'] = preg_replace('/^\/admin\/favorites\//', '/baser/admin/bc-favorite/favorites/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/editor_templates\//', '/baser/admin/bc-editor-template/editor_templates/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/pages\//', '/baser/admin/baser-core/pages/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/themes\//', '/baser/admin/baser-core/themes/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/content_folders\//', '/baser/admin/baser-core/content_folders/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/contents\//', '/baser/admin/baser-core/contents/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/dblogs\//', '/baser/admin/baser-core/dblogs/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/permissions\//', '/baser/admin/baser-core/permissions/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/plugins\//', '/baser/admin/baser-core/plugins/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/site_configs\//', '/baser/admin/baser-core/site_configs/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/sites\//', '/baser/admin/baser-core/sites/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/user_groups\//', '/baser/admin/baser-core/user_groups/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/users\//', '/baser/admin/baser-core/users/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/widget_areas\//', '/baser/admin/bc-widget-area/widget_areas/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/tools\//', '/baser/admin/baser-core/utilities/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/theme_files\//', '/baser/admin/bc-theme-file/theme_files/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/theme_folders\//', '/baser/admin/bc-theme-file/theme_folders/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/search_indices\//', '/baser/admin/bc-search-index/search_indexes/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/theme_configs\//', '/baser/admin/bc-theme-config/theme_configs/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/content_links\//', '/baser/admin/bc-content-link/content_links/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/blog\//', '/baser/admin/bc-blog/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/mail\//', '/baser/admin/bc-mail/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/uploader\//', '/baser/admin/bc-uploader/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/burger_editor\//', '/baser/admin/burger-editor/', $record['url']);
-			$record['url'] = preg_replace('/^\/admin\/optional_link\//', '/baser/admin/optional-link/', $record['url']);
+			$record['url'] = $this->convertAdminUrl($record['url']);
 			try {
 			    $entity = $table->newEmptyEntity();
 			    $entity->setAccess('id', true);
@@ -682,6 +661,78 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				return false;
 			}
 		}
+		return true;
+	}
+
+	/**
+	 * 4系の管理画面の URL を5系の URL に読み替える
+	 *
+	 * アクセスルールと「よく使う項目」で使う
+	 * @param string $url
+	 * @return string
+	 */
+	protected function convertAdminUrl($url)
+	{
+		$rules = [
+			'/^\/admin\/favorites\//' => '/baser/admin/bc-favorite/favorites/',
+			'/^\/admin\/editor_templates\//' => '/baser/admin/bc-editor-template/editor_templates/',
+			'/^\/admin\/pages\//' => '/baser/admin/baser-core/pages/',
+			'/^\/admin\/themes\//' => '/baser/admin/baser-core/themes/',
+			'/^\/admin\/content_folders\//' => '/baser/admin/baser-core/content_folders/',
+			'/^\/admin\/contents\//' => '/baser/admin/baser-core/contents/',
+			'/^\/admin\/dblogs\//' => '/baser/admin/baser-core/dblogs/',
+			'/^\/admin\/permissions\//' => '/baser/admin/baser-core/permissions/',
+			'/^\/admin\/plugins\//' => '/baser/admin/baser-core/plugins/',
+			'/^\/admin\/site_configs\//' => '/baser/admin/baser-core/site_configs/',
+			'/^\/admin\/sites\//' => '/baser/admin/baser-core/sites/',
+			'/^\/admin\/user_groups\//' => '/baser/admin/baser-core/user_groups/',
+			'/^\/admin\/users\//' => '/baser/admin/baser-core/users/',
+			'/^\/admin\/widget_areas\//' => '/baser/admin/bc-widget-area/widget_areas/',
+			'/^\/admin\/tools\//' => '/baser/admin/baser-core/utilities/',
+			'/^\/admin\/theme_files\//' => '/baser/admin/bc-theme-file/theme_files/',
+			'/^\/admin\/theme_folders\//' => '/baser/admin/bc-theme-file/theme_folders/',
+			'/^\/admin\/search_indices\//' => '/baser/admin/bc-search-index/search_indexes/',
+			'/^\/admin\/theme_configs\//' => '/baser/admin/bc-theme-config/theme_configs/',
+			'/^\/admin\/content_links\//' => '/baser/admin/bc-content-link/content_links/',
+			'/^\/admin\/blog\//' => '/baser/admin/bc-blog/',
+			'/^\/admin\/mail\//' => '/baser/admin/bc-mail/',
+			'/^\/admin\/uploader\//' => '/baser/admin/bc-uploader/',
+			'/^\/admin\/burger_editor\//' => '/baser/admin/burger-editor/',
+			'/^\/admin\/optional_link\//' => '/baser/admin/optional-link/',
+		];
+		foreach($rules as $pattern => $replacement) {
+			$url = preg_replace($pattern, $replacement, (string)$url);
+		}
+		return $url;
+	}
+
+	/**
+	 * よく使う項目
+	 *
+	 * 4系の管理画面の URL のまま移行すると、5系ではリンク切れになるため読み替える
+	 * @return bool
+	 */
+	protected function _updateFavorite()
+	{
+		if (!file_exists($this->tmpPath . 'favorites.csv')) return true;
+		$table = $this->tableLocator->get('BcFavorite.Favorites');
+		$records = $this->readCsv('favorites');
+		foreach($records as $record) {
+			$record['url'] = $this->convertAdminUrl($record['url']);
+			try {
+				$entity = $table->newEmptyEntity();
+				$entity->setAccess('id', true);
+				$entity = $table->patchEntity($entity, $record, ['validate' => false]);
+				$table->saveOrFail($entity);
+			} catch (PersistenceException $e) {
+				$this->log('favorites: ' . $e->getEntity()->getMessage(), LogLevel::ERROR, 'migrate_db');
+				return false;
+			} catch (\Throwable $e) {
+				$this->log('favorites: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
+				return false;
+			}
+		}
+		$this->writeCsv('favorites');
 		return true;
 	}
 
