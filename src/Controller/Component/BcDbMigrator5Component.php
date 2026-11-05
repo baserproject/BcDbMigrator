@@ -99,6 +99,11 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$this->deleteSchema('FeedConfigs');
 		$this->deleteSchema('FeedDetails');
 		$this->deleteSchema('BlogConfigs');
+		// 受信内容のテーブルは、移行先のサイトにあるメールフォームの定義で書き出されているため削除し、
+		// データの変換後に、移行したメールフィールドから作り直す（_rebuildMailMessageSchemas()）
+		foreach(glob($this->tmpPath . 'MailMessage[0-9]*Schema.php') as $file) {
+			unlink($file);
+		}
 		return true;
 	}
 
@@ -141,6 +146,8 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		if (!$this->_updateUser()) $result = false;
 		// メールフィールド
 		if (!$this->_updateMailField()) $result = false;
+		// 受信内容のテーブル
+		if (!$this->_rebuildMailMessageSchemas()) $result = false;
 		// CSVを出力する
 		$this->_writeNewCsv();
 		// 不要なCSVを削除
@@ -854,6 +861,54 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				return false;
 			} catch (\Throwable $e) {
 				$this->log('users: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * 受信内容のテーブルの定義を、移行したメールフィールドから作り直す
+	 *
+	 * 受信内容のテーブル（mail_message_<メールフォームID>）はメールフォームごとに列が異なる。
+	 * 移行先のサイトにあるテーブルの定義のまま復元すると、移行したメールフォームの項目と列が合わず、
+	 * 送信された内容が保存されない。変換用の接続にテーブルを作り、その定義を書き出す。
+	 * 移行先のサイトのテーブルには触れない。
+	 * @return bool
+	 */
+	protected function _rebuildMailMessageSchemas()
+	{
+		$db = \Cake\Datasource\ConnectionManager::get($this->newDbConfigKeyName);
+		$prefix = $db->config()['prefix'];
+		$table = $this->tableLocator->get('BcMail.MailFields');
+		$fieldNames = [];
+		foreach($table->find()->orderBy(['MailFields.mail_content_id', 'MailFields.sort'])->all() as $mailField) {
+			$fieldNames[(int)$mailField->mail_content_id][] = $mailField->field_name;
+		}
+		foreach($this->readCsv('mail_contents') as $mailContent) {
+			$mailContentId = (int)$mailContent['id'];
+			$tableName = 'mail_message_' . $mailContentId;
+			$schema = new \Cake\Database\Schema\TableSchema($prefix . $tableName);
+			$schema->addColumn('id', ['type' => 'integer', 'null' => false, 'autoIncrement' => true]);
+			$schema->addColumn('modified', ['type' => 'datetime', 'null' => true, 'default' => null]);
+			$schema->addColumn('created', ['type' => 'datetime', 'null' => true, 'default' => null]);
+			foreach($fieldNames[$mailContentId] ?? [] as $fieldName) {
+				// 既存の列（id・created・modified）と重なる項目は追加しない
+				if (!$fieldName || $schema->hasColumn($fieldName)) continue;
+				$schema->addColumn($fieldName, ['type' => 'text', 'null' => true, 'default' => null]);
+			}
+			$schema->addConstraint('primary', ['type' => 'primary', 'columns' => ['id']]);
+			try {
+				if (in_array($prefix . $tableName, $db->getSchemaCollection()->listTables())) {
+					foreach($schema->dropSql($db) as $sql) $db->execute($sql);
+				}
+				foreach($schema->createSql($db) as $sql) $db->execute($sql);
+				if (!$this->dbService->writeSchema($tableName, ['path' => $this->tmpPath, 'prefix' => $prefix])) {
+					$this->log($tableName . ' のスキーマを書き出せませんでした。', LogLevel::ERROR, 'migrate_db');
+					return false;
+				}
+			} catch (\Throwable $e) {
+				$this->log($tableName . ': ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
 		}
