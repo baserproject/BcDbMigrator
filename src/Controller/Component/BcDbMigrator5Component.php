@@ -18,6 +18,7 @@ use Cake\I18n\FrozenTime;
 use Cake\Utility\Security;
 use CakephpFixtureFactories\Error\PersistenceException;
 use Cake\Core\Configure;
+use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\ConnectionManager;
 use Psr\Log\LogLevel;
 use ReflectionClass;
@@ -55,14 +56,13 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	/**
 	 * startup
 	 *
-	 * 移行先に SEO 設定のテーブル（seo_metas）がある場合は、BcSeo も変換の対象にする
+	 * 移行先に SEO 設定のテーブル（seo_metas）を用意できる場合は、BcSeo も変換の対象にする
 	 * @param \Cake\Event\EventInterface $event
 	 */
 	public function startup(\Cake\Event\EventInterface $event)
 	{
 		parent::startup($event);
-		$db = ConnectionManager::get('default');
-		if (in_array($db->config()['prefix'] . 'seo_metas', $db->getSchemaCollection()->listTables())) {
+		if ($this->_prepareSeoMetas()) {
 			$this->_defaultPlugins[] = 'BcSeo';
 		}
 	}
@@ -976,5 +976,48 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * 移行先に SEO 設定のテーブル（seo_metas）を用意する
+	 *
+	 * 4系のサイト・コンテンツの説明文とキーワードは、5系では BcSeo の seo_metas に保存する。
+	 * 移行先に seo_metas が無いときは、BcSeo のマイグレーションを流して作る
+	 * （`bin/cake migrations migrate -p BcSeo` と同じ）。
+	 * BcSeo が無い環境（5.2 より前）では作れないため、移さない旨をログに残す。
+	 * @return bool seo_metas を用意できたかどうか
+	 */
+	protected function _prepareSeoMetas(): bool
+	{
+		if ($this->_hasSeoMetasTable()) return true;
+		try {
+			/** @var \BaserCore\BcPlugin $plugin */
+			$plugin = CakePlugin::getCollection()->create('BcSeo');
+		} catch (\Throwable $e) {
+			$this->log('移行先に BcSeo が無いため、サイト・コンテンツの説明文とキーワードは移行しません。', LogLevel::WARNING, 'migrate_db');
+			return false;
+		}
+		try {
+			// 'default' が別名（テストでは test）のときも、実際の接続先に流すため設定名を渡す
+			$plugin->migrate(['connection' => ConnectionManager::get('default')->configName()]);
+		} catch (\Throwable $e) {
+			$this->log('seo_metas の作成に失敗しました: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
+		}
+		if (!$this->_hasSeoMetasTable()) {
+			$this->log('seo_metas を作成できなかったため、サイト・コンテンツの説明文とキーワードは移行しません。', LogLevel::ERROR, 'migrate_db');
+			return false;
+		}
+		$this->log('移行先に seo_metas が無かったため、BcSeo のマイグレーションを実行して作成しました。', LogLevel::INFO, 'migrate_db');
+		return true;
+	}
+
+	/**
+	 * 移行先に seo_metas があるかどうか
+	 * @return bool
+	 */
+	protected function _hasSeoMetasTable(): bool
+	{
+		$db = ConnectionManager::get('default');
+		return in_array($db->config()['prefix'] . 'seo_metas', $db->getSchemaCollection()->listTables());
 	}
 }
