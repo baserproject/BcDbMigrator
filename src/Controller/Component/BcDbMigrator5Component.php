@@ -14,6 +14,7 @@ namespace BcDbMigrator\Controller\Component;
 use BaserCore\Service\PermissionGroupsServiceInterface;
 use BaserCore\Utility\BcUtil;
 use Cake\Utility\Hash;
+use Cake\Utility\Inflector;
 use Cake\I18n\FrozenTime;
 use Cake\Utility\Security;
 use CakephpFixtureFactories\Error\PersistenceException;
@@ -730,6 +731,7 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	{
 		$table = $this->tableLocator->get('BaserCore.Permissions');
 		$records = $this->readCsv('permissions');
+		$unconverted = [];
 		foreach($records as $record) {
 			if ($record['url'] === '/admin/*') continue;
 			$record['permission_group_id'] = 1;
@@ -747,6 +749,15 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 				$this->log('permissions: ' . $e->getMessage(), LogLevel::ERROR, 'migrate_db');
 				return false;
 			}
+			if (strpos($record['url'], '/admin/') === 0) $unconverted[] = $record['url'];
+		}
+		if ($unconverted) {
+			$this->log('5系の URL に読み替えられなかったアクセスルール: ' . implode(', ', array_unique($unconverted)), LogLevel::WARNING, 'migrate_db');
+		}
+		if ($records) {
+			// 4系は「拒否したものだけ見られない」、5系は既定で「許可したものだけ見られる」（BcPrefixAuth.Admin.permissionType = 1）
+			$this->log('4系のアクセスルールを移行しました。5系は既定で「許可したものだけ見られる」ため、管理者以外のユーザーグループは、'
+				. '管理画面の「ユーザーグループ」→「アクセスルール」で、5系の標準のルールで作り直す（アクセスルールグループの再構築）か、許可のルールを足してください。', LogLevel::WARNING, 'migrate_db');
 		}
 		return true;
 	}
@@ -754,41 +765,53 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 	/**
 	 * 4系の管理画面の URL を5系の URL に読み替える
 	 *
-	 * アクセスルールと「よく使う項目」で使う
+	 * アクセスルールと「よく使う項目」で使う。
+	 * 4系のアクセスルールは /admin/users* のように、末尾の * の前に / が無い書き方もできるので、
+	 * フォルダの区切り・* ・末尾のどれでも読み替える
 	 * @param string $url
 	 * @return string
 	 */
 	protected function convertAdminUrl($url)
 	{
 		$rules = [
-			'/^\/admin\/favorites\//' => '/baser/admin/bc-favorite/favorites/',
-			'/^\/admin\/editor_templates\//' => '/baser/admin/bc-editor-template/editor_templates/',
-			'/^\/admin\/pages\//' => '/baser/admin/baser-core/pages/',
-			'/^\/admin\/themes\//' => '/baser/admin/baser-core/themes/',
-			'/^\/admin\/content_folders\//' => '/baser/admin/baser-core/content_folders/',
-			'/^\/admin\/contents\//' => '/baser/admin/baser-core/contents/',
-			'/^\/admin\/dblogs\//' => '/baser/admin/baser-core/dblogs/',
-			'/^\/admin\/permissions\//' => '/baser/admin/baser-core/permissions/',
-			'/^\/admin\/plugins\//' => '/baser/admin/baser-core/plugins/',
-			'/^\/admin\/site_configs\//' => '/baser/admin/baser-core/site_configs/',
-			'/^\/admin\/sites\//' => '/baser/admin/baser-core/sites/',
-			'/^\/admin\/user_groups\//' => '/baser/admin/baser-core/user_groups/',
-			'/^\/admin\/users\//' => '/baser/admin/baser-core/users/',
-			'/^\/admin\/widget_areas\//' => '/baser/admin/bc-widget-area/widget_areas/',
-			'/^\/admin\/tools\//' => '/baser/admin/baser-core/utilities/',
-			'/^\/admin\/theme_files\//' => '/baser/admin/bc-theme-file/theme_files/',
-			'/^\/admin\/theme_folders\//' => '/baser/admin/bc-theme-file/theme_folders/',
-			'/^\/admin\/search_indices\//' => '/baser/admin/bc-search-index/search_indexes/',
-			'/^\/admin\/theme_configs\//' => '/baser/admin/bc-theme-config/theme_configs/',
-			'/^\/admin\/content_links\//' => '/baser/admin/bc-content-link/content_links/',
-			'/^\/admin\/blog\//' => '/baser/admin/bc-blog/',
-			'/^\/admin\/mail\//' => '/baser/admin/bc-mail/',
-			'/^\/admin\/uploader\//' => '/baser/admin/bc-uploader/',
-			'/^\/admin\/burger_editor\//' => '/baser/admin/burger-editor/',
-			'/^\/admin\/optional_link\//' => '/baser/admin/optional-link/',
+			'/^\/admin\/favorites(\/|(?=\*)|$)/' => '/baser/admin/bc-favorite/favorites/',
+			'/^\/admin\/editor_templates(\/|(?=\*)|$)/' => '/baser/admin/bc-editor-template/editor_templates/',
+			'/^\/admin\/pages(\/|(?=\*)|$)/' => '/baser/admin/baser-core/pages/',
+			'/^\/admin\/themes(\/|(?=\*)|$)/' => '/baser/admin/baser-core/themes/',
+			'/^\/admin\/content_folders(\/|(?=\*)|$)/' => '/baser/admin/baser-core/content_folders/',
+			'/^\/admin\/contents(\/|(?=\*)|$)/' => '/baser/admin/baser-core/contents/',
+			'/^\/admin\/dblogs(\/|(?=\*)|$)/' => '/baser/admin/baser-core/dblogs/',
+			'/^\/admin\/permissions(\/|(?=\*)|$)/' => '/baser/admin/baser-core/permissions/',
+			'/^\/admin\/plugins(\/|(?=\*)|$)/' => '/baser/admin/baser-core/plugins/',
+			'/^\/admin\/site_configs(\/|(?=\*)|$)/' => '/baser/admin/baser-core/site_configs/',
+			'/^\/admin\/sites(\/|(?=\*)|$)/' => '/baser/admin/baser-core/sites/',
+			'/^\/admin\/user_groups(\/|(?=\*)|$)/' => '/baser/admin/baser-core/user_groups/',
+			'/^\/admin\/users(\/|(?=\*)|$)/' => '/baser/admin/baser-core/users/',
+			'/^\/admin\/widget_areas(\/|(?=\*)|$)/' => '/baser/admin/bc-widget-area/widget_areas/',
+			'/^\/admin\/tools(\/|(?=\*)|$)/' => '/baser/admin/baser-core/utilities/',
+			'/^\/admin\/theme_files(\/|(?=\*)|$)/' => '/baser/admin/bc-theme-file/theme_files/',
+			'/^\/admin\/theme_folders(\/|(?=\*)|$)/' => '/baser/admin/bc-theme-file/theme_folders/',
+			'/^\/admin\/search_indices(\/|(?=\*)|$)/' => '/baser/admin/bc-search-index/search_indexes/',
+			'/^\/admin\/theme_configs(\/|(?=\*)|$)/' => '/baser/admin/bc-theme-config/theme_configs/',
+			'/^\/admin\/content_links(\/|(?=\*)|$)/' => '/baser/admin/bc-content-link/content_links/',
+			'/^\/admin\/blog(\/|(?=\*)|$)/' => '/baser/admin/bc-blog/',
+			'/^\/admin\/mail(\/|(?=\*)|$)/' => '/baser/admin/bc-mail/',
+			'/^\/admin\/uploader(\/|(?=\*)|$)/' => '/baser/admin/bc-uploader/',
+			'/^\/admin\/burger_editor(\/|(?=\*)|$)/' => '/baser/admin/burger-editor/',
+			'/^\/admin\/optional_link(\/|(?=\*)|$)/' => '/baser/admin/optional-link/',
 		];
+		$url = (string)$url;
 		foreach($rules as $pattern => $replacement) {
-			$url = preg_replace($pattern, $replacement, (string)$url);
+			$converted = preg_replace($pattern, $replacement, $url);
+			if ($converted !== $url) return $converted;
+		}
+		// 上に無いプラグインの管理画面（/admin/baser_partner/... など）は、
+		// 移行先にそのプラグインがあれば /baser/admin/baser-partner/... に読み替える
+		if (preg_match('/^\/admin\/([a-z0-9_]+)(\/|(?=\*)|$)(.*)$/', $url, $matches)) {
+			$plugin = Inflector::camelize($matches[1]);
+			if (BcUtil::getPluginPath($plugin)) {
+				return '/baser/admin/' . Inflector::dasherize($matches[1]) . '/' . $matches[3];
+			}
 		}
 		return $url;
 	}
