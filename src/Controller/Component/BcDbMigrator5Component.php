@@ -603,13 +603,37 @@ class BcDbMigrator5Component extends BcDbMigratorComponent implements BcDbMigrat
 		$newRecord['outer_service_output_header'] = '';
 		$newRecord['outer_service_output_footer'] = '';
 		$newRecord['admin_theme'] = 'BcAdminThird';
-		$newRecord['editor'] = 'BaserCore.BcCkeditor';
+		$newRecord['editor'] = $this->convertEditor($newRecord['editor'] ?? '');
 
 		if (!$table->saveKeyValue($newRecord)) {
 			$this->log('site_configs のデータを保存できませんでした。', LogLevel::ERROR, 'migrate_db');
 			return false;
 		}
 		return true;
+	}
+
+	/**
+	 * 4系のエディタの設定値を5系の値に読み替える
+	 *
+	 * 4系の BurgerEditor（BurgerEditor.BurgerEditor）は、5系ではコアの BcBurgerEditor になる。
+	 * BcBurgerEditor が読み込まれていないときや、読み替えられない値のときは CKEditor にする。
+	 *
+	 * @param string $editor 4系の site_configs.editor の値
+	 * @return string 5系の site_configs.editor の値
+	 */
+	public function convertEditor(string $editor): string
+	{
+		$map = [
+			'BcCkeditor' => 'BaserCore.BcCkeditor',
+			'BurgerEditor.BurgerEditor' => 'BcBurgerEditor.BurgerEditor',
+			'none' => 'none',
+		];
+		$converted = $map[$editor] ?? 'BaserCore.BcCkeditor';
+		if ($converted === 'BcBurgerEditor.BurgerEditor' && !CakePlugin::isLoaded('BcBurgerEditor')) {
+			$this->log('BcBurgerEditor が読み込まれていないため、エディタを CKEditor にしました。', LogLevel::WARNING, 'migrate_db');
+			return 'BaserCore.BcCkeditor';
+		}
+		return $converted;
 	}
 
 	/**
